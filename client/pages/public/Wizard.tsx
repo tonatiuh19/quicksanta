@@ -229,6 +229,18 @@ export default function Wizard() {
       <div className="qs-step-bar" aria-hidden>
         <span style={{ width: `${((idx + 1) / steps.length) * 100}%` }} />
       </div>
+      {/* Phones: compact step label + slim summary strip instead of the dots row and the big ticket. */}
+      <div className="qs-step-mobile" aria-hidden>
+        <span>{t("wizard.stepOf", { n: idx + 1, total: steps.length })}</span>
+        <strong>{t(`wizard.steps.${step}`)}</strong>
+      </div>
+      <div className="qs-mini-ticket" style={isCustom ? { background: gradientFor(design.color) } : undefined} aria-hidden>
+        <span className="qs-mini-ticket-kind">{displayName}</span>
+        <strong>{d.name || t("wizard.details.namePh")}</strong>
+        <span className="qs-mini-ticket-people">
+          <Users size={13} /> {people.length}
+        </span>
+      </div>
 
       <div className="qs-wizard-body">
         <section className="qs-wizard-panel" key={step}>

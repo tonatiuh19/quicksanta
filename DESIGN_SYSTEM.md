@@ -25,6 +25,13 @@ Badges (`StatusBadge`): green = active/joined/open/sent, blue = drawn/organizer/
 - **≤640px**: forms single column, stats 2-up, wizard rule builder stacks, OTP boxes shrink.
 - Pages: `portal-page` (max 1200px) → `PageHeader` (kicker, h1, sub, actions) → stats (`qs-stats`) → cards / grid.
 
+## Mobile (≤ 900px) — app-like patterns
+
+- **Wizard:** sticky translucent header; 3px progress bar pinned under it; "Step N of M · Label" instead of the dot rail; a slim **mini ticket** (service, exchange name, people count; takes the custom color) replaces the big preview; panel is full-bleed (no card); **sticky bottom action bar** (Back + full-width primary, safe-area aware, text wraps); service cards become compact rows (icon left, 2-line description); people list never scrolls inside the page; review tiles 2-up (1-up ≤ 380px).
+- **Landing:** nav keeps brand + language + Sign in; the hero carries the CTA (full-width buttons).
+- **Portal shell:** bottom tab bar uses short labels (`tabLabelKey`: Home, Mine…); closed bottom sheet is `visibility: hidden` (not focusable); page headers shrink, header actions stretch, grid filters 2-up.
+- Inputs are ≥ 44px tall and 16px font (no iOS zoom). Verified by `e2e/mobile-audit.spec.ts` at 390px and 320px (`MOBILE_W=320`): fails on any sideways overflow and screenshots every screen.
+
 ## Components
 
 - `Brand`, `PageHeader`, `StatCard` (tones default/red/green/gold), `StatusBadge`, `ErrorNote` (translates API keys), `EmptyState`, `Card`, `SearchBox` (300ms debounce), `FilterSelect` — `client/components/kit.tsx`

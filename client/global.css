@@ -3981,3 +3981,310 @@ form .qs-modal-actions {
   outline: 2px solid var(--qs-gold);
   outline-offset: 2px;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Mobile overhaul (≤ 900px): app-like wizard + landing. Desktop untouched.
+   ════════════════════════════════════════════════════════════════════════ */
+.qs-step-mobile,
+.qs-mini-ticket {
+  display: none;
+}
+@media (max-width: 900px) {
+  /* Landing nav: brand + language + sign-in only; the hero carries the CTA */
+  .qs-landing-nav {
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+  .qs-landing-nav nav {
+    gap: 0.35rem;
+  }
+  .qs-landing-nav nav .qs-btn-primary {
+    display: none;
+  }
+  .qs-landing-nav nav .qs-btn-ghost {
+    display: inline-flex;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.82rem;
+  }
+  .qs-hero2 h1 {
+    font-size: clamp(2.1rem, 10vw, 2.8rem);
+  }
+  .qs-hero-actions .qs-btn-lg {
+    width: 100%;
+  }
+  .qs-hero-demo {
+    width: min(100%, 320px);
+  }
+
+  /* Wizard shell */
+  .qs-wizard {
+    padding: 0 0 0;
+    gap: 0;
+    align-content: start;
+    min-height: 100dvh;
+  }
+  .qs-wizard > .qs-auth-top {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: calc(0.6rem + env(safe-area-inset-top, 0px)) 1rem 0.6rem;
+    background: rgb(253 246 236 / 0.92);
+    backdrop-filter: saturate(160%) blur(14px);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid var(--qs-line);
+  }
+  .qs-wizard > .qs-auth-top .qs-brand-word {
+    font-size: 1rem;
+  }
+  .qs-steps {
+    display: none;
+  }
+  .qs-step-bar {
+    width: 100%;
+    height: 3px;
+    border-radius: 0;
+    position: sticky;
+    top: calc(3.35rem + env(safe-area-inset-top, 0px));
+    z-index: 29;
+  }
+  .qs-step-mobile {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.9rem 1rem 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--qs-slate);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .qs-step-mobile strong {
+    color: var(--qs-red);
+  }
+  .qs-mini-ticket {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "kind people" "name people";
+    align-items: center;
+    column-gap: 0.75rem;
+    width: calc(100% - 2rem);
+    margin: 0.4rem 1rem 0.2rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--qs-red-deep), #dc2626);
+    box-shadow: 0 10px 24px -16px rgb(127 29 29 / 0.8);
+  }
+  .qs-mini-ticket-kind {
+    grid-area: kind;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--qs-gold-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .qs-mini-ticket strong {
+    grid-area: name;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .qs-mini-ticket-people {
+    grid-area: people;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.18);
+    font-weight: 800;
+    font-size: 0.82rem;
+  }
+  .qs-wizard-preview {
+    display: none;
+  }
+  .qs-wizard-body {
+    width: 100%;
+    display: block;
+  }
+  /* Panel: full-bleed content, no card chrome */
+  .qs-wizard-panel {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0.8rem 1rem 0;
+    gap: 0.9rem;
+  }
+  .qs-wizard-panel h2 {
+    font-size: 1.45rem;
+  }
+  .qs-wizard-panel .qs-page-sub {
+    font-size: 0.92rem;
+    margin-top: -0.4rem;
+  }
+  /* Sticky action bar */
+  .qs-wizard-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 25;
+    margin: 0.4rem -1rem 0;
+    padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom, 0px));
+    background: rgb(255 253 248 / 0.95);
+    backdrop-filter: saturate(160%) blur(14px);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    border-top: 1px solid var(--qs-line);
+    box-shadow: 0 -10px 24px -20px rgb(127 29 29 / 0.6);
+  }
+  .qs-wizard-nav > button:last-child {
+    flex: 1;
+    margin-left: 0.6rem;
+    height: 3rem;
+    font-size: 1rem;
+    white-space: normal;
+    line-height: 1.2;
+  }
+  .qs-wizard-nav > button:first-child {
+    height: 3rem;
+    padding-inline: 0.8rem;
+  }
+  /* Service cards: compact rows */
+  .qs-choice-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.55rem;
+  }
+  .qs-choice {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "icon title" "icon desc";
+    column-gap: 0.8rem;
+    row-gap: 0.1rem;
+    align-items: center;
+    padding: 0.75rem 0.85rem;
+    border-radius: 16px;
+  }
+  .qs-choice .qs-choice-icon {
+    grid-area: icon;
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+  .qs-choice > strong {
+    grid-area: title;
+    padding-right: 3.8rem;
+  }
+  .qs-choice > .qs-choice-desc {
+    grid-area: desc;
+    font-size: 0.78rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .qs-choice:hover {
+    transform: none;
+  }
+  .qs-choice .qs-pro-tag {
+    top: 0.65rem;
+  }
+  /* People list: no nested scroll on phones */
+  .qs-people {
+    max-height: none;
+    overflow: visible;
+  }
+  .qs-review {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .qs-review div {
+    padding: 0.65rem 0.75rem;
+  }
+  .qs-review dd {
+    font-size: 0.92rem;
+  }
+  .qs-plan-opt {
+    padding: 0.75rem;
+  }
+  .qs-plan-opt-price {
+    font-size: 1.2rem;
+  }
+  .qs-pay-panel {
+    padding-bottom: 1.5rem;
+  }
+  /* Tap targets ≥ 44px */
+  .qs-field input,
+  .qs-field select,
+  .qs-add-person input,
+  .qs-budget input,
+  .qs-budget select,
+  .qs-rule-builder select {
+    min-height: 2.9rem;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+  .qs-icon-pick button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .qs-color-pick button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  .qs-chip {
+    padding: 0.45rem 0.8rem;
+  }
+}
+@media (max-width: 380px) {
+  .qs-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .qs-wizard-nav > button:first-child span,
+  .qs-wizard-nav > button:first-child {
+    font-size: 0;
+    gap: 0;
+  }
+  .qs-wizard-nav > button:first-child svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Closed bottom sheet: out of the tab order and the accessibility tree. */
+  .portal-shell:not(.is-nav-open) .portal-sidebar {
+    visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.3s;
+  }
+  .portal-shell.is-nav-open .portal-sidebar {
+    visibility: visible;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  /* Portal pages: tighter rhythm on phones */
+  .qs-page-header {
+    margin-bottom: 1rem;
+  }
+  .qs-page-header h1 {
+    font-size: clamp(1.45rem, 7vw, 1.9rem);
+  }
+  .qs-page-actions > * {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .qs-grid-toolbar .qs-filter {
+    flex: 1 1 calc(50% - 0.3rem);
+  }
+  .qs-grid-toolbar .qs-filter select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .portal-tab {
+    font-size: 0.6rem;
+    letter-spacing: -0.01em;
+  }
+  .portal-tab-icon {
+    width: 2.3rem;
+  }
+}

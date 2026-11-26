@@ -285,7 +285,9 @@
     "sectionOverview": "Overview",
     "sectionOrganize": "Organize",
     "sectionSetup": "Setup",
-    "billing": "Plan & billing"
+    "billing": "Plan & billing",
+    "myExchangesShort": "Mine",
+    "home": "Home"
   },
   "dashboard": {
     "hello": "Hi, {{name}}",
@@ -546,7 +548,8 @@
         "slate": "Slate"
       },
       "templateOverwrite": "A design named “{{name}}” already exists and will be updated."
-    }
+    },
+    "stepOf": "Step {{n}} of {{total}}"
   },
   "admin": {
     "nav": {

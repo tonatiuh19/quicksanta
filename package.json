@@ -20,7 +20,8 @@
     "test:cleanup-fixtures": "npx tsx scripts/cleanup-test-fixtures.ts",
     "format.fix": "prettier --write .",
     "e2e:stripe": "npx tsx scripts/stripe-e2e.ts",
-    "e2e:browser": "playwright test"
+    "e2e:browser": "playwright test",
+    "audit:mobile": "playwright test e2e/mobile-audit.spec.ts --project mobile"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.134.0",

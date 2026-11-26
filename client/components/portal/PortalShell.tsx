@@ -18,6 +18,8 @@ export type NavItem = {
   to: string;
   end?: boolean;
   labelKey: string;
+  /** Short label for the phone tab bar (falls back to labelKey). */
+  tabLabelKey?: string;
   icon: LucideIcon;
   /** Command Center: required platform permission. */
   perm?: PlatformPerm;
@@ -221,7 +223,7 @@ export default function PortalShell({ kind, titleKey, nav, tabs, allow, denyPath
             <span className="portal-tab-icon">
               <item.icon size={21} strokeWidth={1.8} aria-hidden />
             </span>
-            <span className="portal-tab-label">{t(item.labelKey)}</span>
+            <span className="portal-tab-label">{t(item.tabLabelKey ?? item.labelKey)}</span>
           </NavLink>
         ))}
         <button type="button" className={navOpen ? "portal-tab is-active" : "portal-tab"} aria-expanded={navOpen} aria-controls={navId} onClick={() => setNavOpen((v) => !v)}>

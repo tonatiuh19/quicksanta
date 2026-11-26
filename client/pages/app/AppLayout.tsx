@@ -3,8 +3,8 @@ import PortalShell, { type NavItem } from "@/components/portal/PortalShell";
 
 /** Workspace nav, split by category (groundwork-style sections). */
 export const APP_NAV: NavItem[] = [
-  { to: "/app", end: true, labelKey: "nav.dashboard", icon: LayoutDashboard, section: "nav.sectionOverview" },
-  { to: "/app/my", labelKey: "nav.myExchanges", icon: Gift, section: "nav.sectionOverview" },
+  { to: "/app", end: true, labelKey: "nav.dashboard", tabLabelKey: "nav.home", icon: LayoutDashboard, section: "nav.sectionOverview" },
+  { to: "/app/my", labelKey: "nav.myExchanges", tabLabelKey: "nav.myExchangesShort", icon: Gift, section: "nav.sectionOverview" },
   { to: "/app/events", labelKey: "nav.events", icon: CalendarHeart, roles: ["organizer"], section: "nav.sectionOrganize" },
   { to: "/app/members", labelKey: "nav.members", icon: Users, roles: ["organizer"], section: "nav.sectionOrganize" },
   { to: "/app/billing", labelKey: "nav.billing", icon: CreditCard, roles: ["organizer"], section: "nav.sectionSetup" },

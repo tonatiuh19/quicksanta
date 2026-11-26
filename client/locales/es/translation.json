@@ -285,7 +285,9 @@
     "sectionOverview": "General",
     "sectionOrganize": "Organizar",
     "sectionSetup": "Ajustes",
-    "billing": "Plan y facturación"
+    "billing": "Plan y facturación",
+    "myExchangesShort": "Míos",
+    "home": "Inicio"
   },
   "dashboard": {
     "hello": "Hola, {{name}}",
@@ -546,7 +548,8 @@
         "slate": "Pizarra"
       },
       "templateOverwrite": "Ya existe un diseño llamado “{{name}}”; se actualizará."
-    }
+    },
+    "stepOf": "Paso {{n}} de {{total}}"
   },
   "admin": {
     "nav": {
