@@ -67,7 +67,8 @@ describe.skipIf(!HAS_DB)("full flow (TiDB)", () => {
     const anaTok = tokens.find((t) => t.to === mail("ana"))!.token;
     expect((await request(app).get(`/api/join/${anaTok}`)).body.invite.event_name).toBe("Integration Santa");
     expect((await request(app).post(`/api/join/${anaTok}/respond`).set("Cookie", ana).send({ accept: true })).body.status).toBe("joined");
-    await request(app).put(`/api/app/my/events/${event_public_id}/wishlist`).set("Cookie", ana).send({ wishlist: "Books" }).expect(200);
+    // Secret Santa has no wishlists (service setting), even though the launch asked for them.
+    await request(app).put(`/api/app/my/events/${event_public_id}/wishlist`).set("Cookie", ana).send({ wishlist: "Books" }).expect(404);
 
     // Ana (participant) cannot run the draw.
     expect((await request(app).post(`/api/app/events/${event_id}/draw`).set("Cookie", ana).set("X-Tenant-Id", String(tenant_id))).status).toBe(403);
@@ -84,5 +85,21 @@ describe.skipIf(!HAS_DB)("full flow (TiDB)", () => {
     expect(mine.body.receiver?.name).toBeTruthy();
     expect(mine.body.receiver.name).not.toBe("Ana");
     expect(mine.body.receiver.name).not.toBe("Bob"); // excluded pair
+  });
+
+  it("wizard draft: upsert (one per user), read back, launch deletes it", async () => {
+    const me = await login(mail("drafter"), "Drafter");
+    expect((await request(app).get("/api/wizard/draft").set("Cookie", me)).body.draft).toBeNull();
+    await request(app).put("/api/wizard/draft").set("Cookie", me).send({ step: "details", data: { name: "First" } }).expect(200);
+    await request(app).put("/api/wizard/draft").set("Cookie", me).send({ step: "people", data: { name: "Second", participants: [{ name: "Ñu", email: mail("nu") }] } }).expect(200);
+    const got = (await request(app).get("/api/wizard/draft").set("Cookie", me)).body.draft;
+    expect(got).toMatchObject({ step: "people", data: { name: "Second", participants: [{ name: "Ñu" }] } });
+    expect(got.updated_at).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/);
+    const launch = await request(app)
+      .post("/api/wizard/launch")
+      .set("Cookie", me)
+      .send({ eventTypeSlug: "white_elephant", name: "Draft party", currency: "USD", organizerName: "Drafter", includeMe: true, participants: [{ name: "Nu", email: mail("nu") }], exclusions: [], sendInvites: false });
+    expect(launch.status).toBe(201);
+    expect((await request(app).get("/api/wizard/draft").set("Cookie", me)).body.draft).toBeNull();
   });
 });

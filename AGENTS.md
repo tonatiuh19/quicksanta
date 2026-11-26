@@ -36,7 +36,7 @@ Guards: last owner can't be demoted/suspended; last organizer can't be removed; 
 
 ## Core flows
 
-1. **Wizard** `/start` (exchange-only): service → details → people (paste lists) → rules (exclusions) → account (OTP, skipped when signed in) → review → `POST /api/wizard/launch`. Creates the tenant implicitly (first time), organizer membership, event, participants, exclusions, invites — one transaction. Draft persists in localStorage.
+1. **Wizard** `/start` (exchange-only): service → details → people (paste lists) → rules (exclusions) → account (OTP, skipped when signed in) → review → `POST /api/wizard/launch`. Creates the tenant implicitly (first time), organizer membership, event, participants, exclusions, invites — one transaction. Drafts: one active draft per user — always in localStorage (`qs_wizard_draft` v2: draft + step + savedAt), and when signed in also autosaved (debounced) to `wizard_drafts` via `GET/PUT/DELETE /api/wizard/draft` (`client/store/draftSync.ts`). On sign-in the newer of browser/account wins (a signed-out draft moves into the account). Shown as a "Continue" ticket (`DraftCard`) on the dashboard and on the `/start` resume screen. Logout clears only the browser copy; launch deletes the draft; 30-day expiry (client + `/api/cron/cleanup`). Drafts are not exchanges and never count toward limits.
 2. **Join** `/join/:token`: public preview → sign in with the invited email → accept → participant membership.
 3. **Draw** `POST /api/app/events/:id/draw`: randomized backtracking derangement honoring exclusions (`drawAssignments`), atomic status lock (`open → drawn`), assignment emails.
 4. **Reveal** `/app/my/:publicId`: flip card shows receiver + wishlist; marks `viewed_at`.

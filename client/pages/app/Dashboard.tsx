@@ -5,6 +5,9 @@ import { CalendarHeart, Gift, Plus, Shuffle, Users } from "lucide-react";
 import { Card, EmptyState, ErrorNote, PageHeader, StatCard, StatusBadge, formatBudget, formatDate, Spinner } from "@/components/kit";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchDashboard, fetchMyEvents } from "@/store/slices/appSlice";
+import { fetchEventTypes } from "@/store/slices/catalogSlice";
+import { resetWizard, resumeDraft } from "@/store/slices/wizardSlice";
+import DraftCard from "@/components/DraftCard";
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
@@ -15,6 +18,20 @@ export default function Dashboard() {
   const active = user.memberships.find((m) => m.tenant_id === user.active_tenant_id);
   const isOrganizer = active?.role === "organizer";
 
+  const catalogLoaded = useAppSelector((s) => s.catalog.loaded);
+  useEffect(() => {
+    if (!catalogLoaded) void dispatch(fetchEventTypes());
+  }, [catalogLoaded, dispatch]);
+  const draftCard = (
+    <DraftCard
+      onContinue={() => {
+        dispatch(resumeDraft());
+        navigate("/start", { state: { resume: true } });
+      }}
+      onDiscard={() => dispatch(resetWizard())}
+    />
+  );
+
   useEffect(() => {
     if (!active) return;
     void dispatch(fetchDashboard());
@@ -24,6 +41,7 @@ export default function Dashboard() {
   if (!active) {
     return (
       <div className="portal-page">
+        {draftCard}
         <EmptyState title={t("dashboard.noWorkspace")} body={t("dashboard.noWorkspaceBody")} action={<Link className="qs-btn qs-btn-primary" to="/start">{t("landing.cta")}</Link>} />
       </div>
     );
@@ -45,6 +63,7 @@ export default function Dashboard() {
         }
       />
       <ErrorNote error={error} onRetry={() => void dispatch(fetchDashboard())} />
+      {draftCard}
       {loading.dashboard && !dashboard ? <Spinner label={t("common.loading")} /> : null}
       {dashboard && isOrganizer ? (
         <div className="qs-stats">

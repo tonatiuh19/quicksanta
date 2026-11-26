@@ -42,11 +42,11 @@ Assignments are private: only the giver can see who they are gifting. Organizers
 
 ## 5. Cookies and local storage
 
-We use one essential, HttpOnly session cookie (`qs_sid`) to keep you signed in, and local storage to remember your language and unsent wizard drafts. Stripe may set cookies on its secure card fields for fraud prevention. We do not use advertising cookies.
+We use one essential, HttpOnly session cookie (`qs_sid`) to keep you signed in, and local storage to remember your language and unfinished wizard drafts. Stripe may set cookies on its secure card fields for fraud prevention. We do not use advertising cookies.
 
 ## 6. Retention
 
-We keep account and exchange data while your account or workspace is active. Sign-in codes are deleted after 2 days; expired sessions are deleted 7 days after they expire and signed-out sessions after 30 days. Billing records are kept as long as tax law requires. You can ask us to delete your data at any time (see below).
+We keep account and exchange data while your account or workspace is active. Sign-in codes are deleted after 2 days; expired sessions are deleted 7 days after they expire and signed-out sessions after 30 days. Unfinished exchange drafts (saved in your browser and, when you are signed in, in your account) are deleted 30 days after their last edit, or as soon as you launch or delete them. Billing records are kept as long as tax law requires. You can ask us to delete your data at any time (see below).
 
 ## 7. Your ARCO rights
 

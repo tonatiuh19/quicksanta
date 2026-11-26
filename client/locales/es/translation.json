@@ -198,7 +198,7 @@
         "features": [
           "Amigo secreto y Elefante blanco",
           "Hasta 20 personas por intercambio",
-          "Reglas de exclusión y listas de deseos",
+          "Reglas de exclusión (parejas separadas)",
           "Invitaciones por correo y revelación"
         ],
         "cta": "Empezar gratis"
@@ -211,7 +211,7 @@
         "features": [
           "Todo lo de Gratis",
           "Hasta 100 personas por intercambio",
-          "Todos los servicios: listas, libros y galletas",
+          "Todos los servicios: listas de deseos, libros y galletas",
           "✨ Crea tus propios intercambios + plantillas",
           "Cancela cuando quieras"
         ],
@@ -448,7 +448,8 @@
       "currency": "Moneda",
       "description": "Mensaje para todos",
       "descriptionPh": "Código de vestimenta, tema, reglas…",
-      "wishlists": "Permitir listas de deseos"
+      "wishlists": "Permitir listas de deseos",
+      "wishlistsIncluded": "Todos comparten su lista de deseos: de eso se trata el Intercambio por lista de deseos."
     },
     "people": {
       "title": "¿Quiénes participan?",
@@ -651,7 +652,13 @@
       "order": "Orden",
       "proOnly": "Solo Pro",
       "free": "Gratis",
-      "slug": "Identificador (slug)"
+      "slug": "Identificador (slug)",
+      "wishlists": "Listas de deseos",
+      "wishlistModes": {
+        "off": "Desactivadas",
+        "optional": "Lo decide el organizador",
+        "required": "Siempre activas"
+      }
     },
     "settings": {
       "version": "Versión en producción {{v}}",
@@ -719,7 +726,9 @@
     "cardNotSaved": "No pudimos guardar esa tarjeta.",
     "retryFailed": "Tarjeta guardada, pero el reintento falló. Prueba otra tarjeta.",
     "customIsPro": "“Crea el tuyo” siempre requiere Pro.",
-    "cronNotConfigured": "Tarea programada no configurada."
+    "cronNotConfigured": "Tarea programada no configurada.",
+    "wishlistsFixed": "Las listas de deseos las define este servicio y no se pueden cambiar.",
+    "draftTooLarge": "Este borrador es demasiado grande para guardarlo."
   },
   "validation": {
     "invalid": "Revisa los campos.",
@@ -864,5 +873,26 @@
       "typeLabel": "Nombre del espacio",
       "confirm": "Cancelar suscripción"
     }
+  },
+  "drafts": {
+    "aria": "Borrador de intercambio sin terminar",
+    "badge": "Borrador",
+    "untitled": "Intercambio sin nombre",
+    "customKind": "Crea el tuyo",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} personas",
+    "nextStep": "Sigue",
+    "edited": "Editado {{when}}",
+    "syncedAccount": "Guardado en tu cuenta · se conserva {{days}} días más",
+    "syncedBrowser": "Guardado en este navegador · inicia sesión para tenerlo en todos tus dispositivos · se conserva {{days}} días más",
+    "continue": "Continuar",
+    "discard": "Borrar borrador",
+    "confirmDiscard": "Sí, borrarlo",
+    "progress": "{{pct}}% listo",
+    "resumeKicker": "Qué bueno verte de nuevo",
+    "resumeTitle": "Sigue donde te quedaste",
+    "resumeSub": "Tu intercambio está guardado tal como lo dejaste.",
+    "startNew": "Empezar un intercambio nuevo",
+    "oneDraft": "Puedes tener un borrador a la vez: empezar uno nuevo reemplaza este."
   }
 }

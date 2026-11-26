@@ -345,3 +345,23 @@ CREATE TABLE IF NOT EXISTS `event_templates` (
   CONSTRAINT `fk_templates_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_templates_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Each service decides whether wishlists exist: off (Secret Santa, White Elephant, Cookie Swap),
+-- required (Wishlist Exchange, the Pro service built around them), optional (Book Swap, Create your own).
+ALTER TABLE `event_types` ADD COLUMN `wishlist_mode` ENUM('off','required','optional') NOT NULL DEFAULT 'off' AFTER `requires_pro`;
+UPDATE `event_types` SET `wishlist_mode` = 'required' WHERE `slug` = 'wishlist_exchange';
+UPDATE `event_types` SET `wishlist_mode` = 'optional' WHERE `slug` IN ('book_swap', 'custom');
+UPDATE `event_types` SET `wishlist_mode` = 'off' WHERE `slug` IN ('secret_santa', 'white_elephant', 'cookie_swap');
+
+-- ── 20261126_230000_wizard_drafts ──
+-- Wizard drafts: one active draft per signed-in user (signed-out drafts live in the browser).
+-- Not an exchange: never counted toward plan limits; purged 30 days after the last edit (cron).
+CREATE TABLE IF NOT EXISTS `wizard_drafts` (
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `step` VARCHAR(16) NOT NULL DEFAULT 'service',
+  `data` JSON NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`),
+  KEY `idx_wizard_drafts_updated` (`updated_at`),
+  CONSTRAINT `fk_wizard_drafts_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

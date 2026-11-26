@@ -2,14 +2,15 @@
  * Onboarding wizard (/start): create an exchange in ~1 minute.
  * service → design ("Create your own" only) → details → people → rules (draws only) → account (OTP, skipped when signed in) → review → launch.
  * Pro-only services stay visible with a Pro badge; launching one on a Free workspace goes through the subscription.
- * Draft lives in Redux (persisted to localStorage), so the OTP round trip or a reload never loses work.
+ * Draft lives in Redux, mirrored to localStorage and (signed in) autosaved to the account — see store/draftSync.ts.
+ * Coming back with a draft shows a resume screen ("Pick up where you left off" / start new) before the steps.
  * The tenant is created implicitly on launch.
  */
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useLayoutEffect, useMemo, useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowLeft, ArrowRight, CalendarDays, PartyPopper, Check, Crown, Eye, EyeOff, Gift, Lock, MapPin, Plus, Rocket, Save, Send, Shuffle, Sparkles, Trash2, Users, Wallet, X,
+  ArrowLeft, ArrowRight, CalendarDays, ListChecks, PartyPopper, Check, Crown, Eye, EyeOff, Gift, Lock, MapPin, Plus, Rocket, Save, Send, Shuffle, Sparkles, Trash2, Users, Wallet, X,
 } from "lucide-react";
 import { parseParticipantLines, EMAIL_RE, normalizeEmail, type EventType } from "@shared/api";
 import { Brand, ErrorNote, formatBudget, formatDate, Spinner } from "@/components/kit";
@@ -22,13 +23,25 @@ import { fetchEventTypes } from "@/store/slices/catalogSlice";
 import { deleteTemplate, fetchPricing, fetchTemplates } from "@/store/slices/appSlice";
 import { CUSTOM_COLORS, CUSTOM_COLOR_MAP, CUSTOM_ICONS, CUSTOM_ICON_MAP, SERVICE_ICON_MAP, gradientFor } from "@/components/customDesign";
 import CheckoutCard from "@/components/billing/CheckoutCard";
+import DraftCard from "@/components/DraftCard";
 import { formatMoney } from "@shared/api";
 import {
-  WIZARD_STEPS, addExclusion, addParticipants, draftUsesDraw, emptyDesign, goTo, launchWizard, patchDesign, patchDraft, removeExclusion, removeParticipant, resetWizard, wizardPeople, type WizardStep,
+  addExclusion, addParticipants, clampStep, draftHasContent, draftUsesDraw, emptyDesign, goTo, launchWizard, patchDesign, patchDraft, removeExclusion, removeParticipant, resetWizard, askResume, resumeDraft, wizardPeople, wizardSteps, type WizardStep,
 } from "@/store/slices/wizardSlice";
 
 const ICONS = SERVICE_ICON_MAP;
 const CURRENCIES = ["USD", "MXN", "EUR", "GBP", "CAD", "COP", "ARS", "CLP", "PEN", "BRL"];
+
+/** Budget suggestions that make sense in each currency (USD-ish steps × a rough local scale, rounded). */
+const CURRENCY_SCALE: Record<string, number> = { USD: 1, EUR: 1, GBP: 1, CAD: 1, MXN: 20, BRL: 5, PEN: 4, COP: 4000, ARS: 1000, CLP: 900 };
+export function budgetChips(currency: string): number[] {
+  const k = CURRENCY_SCALE[currency] ?? 1;
+  const nice = (n: number) => {
+    const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1));
+    return Math.round(n / p) * p;
+  };
+  return [10, 20, 25, 50, 100].map((v) => nice(v * k));
+}
 
 export function stepError(step: WizardStep, d: ReturnType<typeof useDraft>, type: EventType | undefined, peopleCount: number): string | null {
   if (step === "service" && !type) return "wizard.errors.pickService";
@@ -57,7 +70,7 @@ export default function Wizard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { step, launching, error, result } = useAppSelector((s) => s.wizard);
+  const { step, launching, error, result, resumePending } = useAppSelector((s) => s.wizard);
   const d = useDraft();
   const { user, bootstrapped } = useAppSelector((s) => s.auth);
   const catalog = useAppSelector((s) => s.catalog);
@@ -72,10 +85,17 @@ export default function Wizard() {
     if (!pricing) void dispatch(fetchPricing());
   }, [bootstrapped, catalog.loaded, dispatch]);
 
+  const location = useLocation();
+  // Arriving with a draft from anywhere but a "Continue" button → the resume screen decides (before first paint).
+  useLayoutEffect(() => {
+    if (!(location.state as { resume?: boolean } | null)?.resume) dispatch(askResume());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ?type=… preselects a service — but never silently overwrites a draft waiting on the resume screen.
+  const typeParam = params.get("type");
   useEffect(() => {
-    const type = params.get("type");
-    if (type) dispatch(patchDraft({ eventTypeSlug: type }));
-  }, [params, dispatch]);
+    if (typeParam && !draftHasContent(d, step)) dispatch(patchDraft({ eventTypeSlug: typeParam }));
+  }, [typeParam, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user && !d.organizerName && user.full_name && !user.full_name.includes("@")) dispatch(patchDraft({ organizerName: user.full_name }));
@@ -96,12 +116,18 @@ export default function Wizard() {
   const usesDraw = draftUsesDraw(d, type);
   const plan = needsPro || typeNeedsPro ? "pro" : d.plan ?? "free";
   const isCustom = d.eventTypeSlug === "custom";
+  const wishlistMode = type?.wishlist_mode ?? "off";
   const design = d.custom ?? emptyDesign();
   const templates = useAppSelector((s) => s.app.templates);
   const displayName = isCustom ? design.name || t("wizard.design.namePh") : type ? (es ? type.name_es : type.name_en) : "QuickSanta";
   const price = pricing ? formatMoney(pricing.pro_price_cents, pricing.pro_currency, i18n.language.startsWith("es") ? "es-MX" : "en-US") : "…";
-  const steps = WIZARD_STEPS.filter((s) => !(s === "account" && user) && !(s === "rules" && !usesDraw) && !(s === "design" && !isCustom));
+  const steps = wizardSteps(d, type, Boolean(user));
   const idx = Math.max(0, steps.indexOf(step));
+
+  // A resumed draft can point at a step this flow skips (e.g. "account" after signing in): move to the closest one.
+  useEffect(() => {
+    if (catalog.loaded && !steps.includes(step)) dispatch(goTo(clampStep(step, steps)));
+  }, [catalog.loaded, step, steps.join(), dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (organizerWs && workspacePro) void dispatch(fetchTemplates());
@@ -192,6 +218,41 @@ export default function Wizard() {
             </Button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // A draft came back (reload, another device, the dashboard): continue it or start fresh.
+  if (resumePending) {
+    return (
+      <div className="qs-wizard">
+        <header className="qs-auth-top">
+          <Link to="/">
+            <Brand />
+          </Link>
+          <div className="qs-row">
+            <LanguageToggle />
+            <Link className="qs-link-btn" to={user ? "/app" : "/"}>
+              {t("wizard.exit")}
+            </Link>
+          </div>
+        </header>
+        <section className="qs-wizard-panel qs-resume">
+          <p className="qs-kicker">
+            <Sparkles size={13} /> {t("drafts.resumeKicker")}
+          </p>
+          <h2>{t("drafts.resumeTitle")}</h2>
+          <p className="qs-page-sub">{t("drafts.resumeSub")}</p>
+          <DraftCard
+            onContinue={() => dispatch(resumeDraft())}
+            onDiscard={() => {
+              dispatch(resetWizard());
+              if (typeParam) dispatch(patchDraft({ eventTypeSlug: typeParam }));
+            }}
+            discardLabel={t("drafts.startNew")}
+          />
+          <p className="qs-fine">{t("drafts.oneDraft")}</p>
+        </section>
       </div>
     );
   }
@@ -464,9 +525,9 @@ export default function Wizard() {
                     </select>
                   </div>
                   <div className="qs-chips">
-                    {[10, 20, 25, 50, 100].map((v) => (
+                    {budgetChips(d.currency).map((v) => (
                       <button key={v} type="button" className={`qs-chip${d.budgetMax === v ? " is-on" : ""}`} onClick={() => dispatch(patchDraft({ budgetMin: Math.round(v * 0.75), budgetMax: v }))}>
-                        ~{v} {d.currency}
+                        ~{v.toLocaleString(es ? "es-MX" : "en-US")} {d.currency}
                       </button>
                     ))}
                   </div>
@@ -475,10 +536,16 @@ export default function Wizard() {
                   <span>{t("wizard.details.description")}</span>
                   <textarea rows={3} maxLength={2000} value={d.description ?? ""} onChange={(e) => dispatch(patchDraft({ description: e.target.value }))} placeholder={t("wizard.details.descriptionPh")} />
                 </label>
-                <label className="qs-switch span-2">
-                  <input type="checkbox" checked={d.allowWishlists} onChange={(e) => dispatch(patchDraft({ allowWishlists: e.target.checked }))} />
-                  <span>{t("wizard.details.wishlists")}</span>
-                </label>
+                {wishlistMode === "optional" ? (
+                  <label className="qs-switch span-2">
+                    <input type="checkbox" checked={d.allowWishlists} onChange={(e) => dispatch(patchDraft({ allowWishlists: e.target.checked }))} />
+                    <span>{t("wizard.details.wishlists")}</span>
+                  </label>
+                ) : wishlistMode === "required" ? (
+                  <p className="qs-fine span-2 qs-wish-note">
+                    <ListChecks size={14} /> {t("wizard.details.wishlistsIncluded")}
+                  </p>
+                ) : null}
               </div>
             </>
           )}

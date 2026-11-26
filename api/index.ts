@@ -48,6 +48,7 @@ import type {
   TenantDashboard,
   TenantPerm,
   TenantRole,
+  WizardDraftRecord,
   WizardLaunchInput,
 } from "../shared/api";
 
@@ -547,6 +548,13 @@ export function drawAssignments(
  * Allowed organizer status changes. Drawing/opening after payment happen through their own endpoints.
  * open → completed is only for services without a draw (white elephant, cookie swap).
  */
+/** Wishlists are a property of the service: off / always on / organizer's choice. */
+export function effectiveWishlists(mode: string | null | undefined, requested: boolean | undefined): boolean {
+  if (mode === "required") return true;
+  if (mode === "optional") return requested !== false;
+  return false;
+}
+
 export function canTransition(from: string, to: string, usesDraw: boolean): boolean {
   const table: Record<string, string[]> = {
     draft: ["open", "cancelled"],
@@ -1050,6 +1058,7 @@ function mapEventType(r: any): EventType {
     icon: r.icon,
     uses_draw: toBool(r.uses_draw),
     requires_pro: toBool(r.requires_pro),
+    wishlist_mode: r.wishlist_mode === "required" || r.wishlist_mode === "optional" ? r.wishlist_mode : "off",
     is_active: toBool(r.is_active),
     sort_order: Number(r.sort_order ?? 0),
   };
@@ -1057,7 +1066,7 @@ function mapEventType(r: any): EventType {
 
 const EVENT_SELECT = `e.id, e.public_id, e.tenant_id, et.slug AS event_type_slug, et.name_en AS event_type_name, et.name_es AS event_type_name_es, e.name, e.description, e.status,
   e.plan, e.paid_at, e.budget_min, e.budget_max, e.currency, e.exchange_date, e.rsvp_deadline, e.location, e.allow_wishlists, e.drawn_at, e.created_at,
-  e.custom_name, e.custom_icon, e.custom_color, e.match_mode, e.theme_rules, e.reveal_mode, et.requires_pro,
+  e.custom_name, e.custom_icon, e.custom_color, e.match_mode, e.theme_rules, e.reveal_mode, et.requires_pro, et.wishlist_mode,
   IF(e.match_mode IS NULL, et.uses_draw, e.match_mode = 'draw') AS uses_draw,
   (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.status IN ('invited','joined')) AS participant_count,
   (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.status = 'joined') AS joined_count`;
@@ -1087,6 +1096,7 @@ function mapEvent(r: any): EventRow {
     rsvp_deadline: r.rsvp_deadline ?? null,
     location: r.location ?? null,
     allow_wishlists: toBool(r.allow_wishlists),
+    wishlist_mode: r.wishlist_mode === "required" || r.wishlist_mode === "optional" ? r.wishlist_mode : "off",
     participant_count: Number(r.participant_count ?? 0),
     joined_count: Number(r.joined_count ?? 0),
     drawn_at: r.drawn_at ?? null,
@@ -1329,6 +1339,11 @@ function registerAuthRoutes(app: express.Express) {
 export const CUSTOM_ICONS = ["sparkles", "gift", "heart", "star", "tree", "music", "coffee", "palette", "book", "cookie", "party", "snowflake"] as const;
 export const CUSTOM_COLORS = ["red", "green", "gold", "blue", "purple", "pink", "teal", "slate"] as const;
 
+const DRAFT_TTL_DAYS = 30;
+const DRAFT_MAX_BYTES = 64 * 1024;
+const WIZARD_DRAFT_STEPS = ["service", "design", "details", "people", "rules", "account", "review"] as const;
+const draftSchema = z.object({ step: z.enum(WIZARD_DRAFT_STEPS).default("service"), data: z.record(z.string(), z.unknown()) });
+
 const wizardSchema = z.object({
   eventTypeSlug: z.string().min(1).max(40),
   name: z.string().trim().min(2).max(140),
@@ -1453,7 +1468,7 @@ function registerWizardRoutes(app: express.Express) {
             publicId, tenantId, type.id, input.name,
             custom?.name ?? null, custom?.icon ?? null, custom?.color ?? null, custom?.matchMode ?? null, custom?.themeRules || null, custom?.revealMode ?? "private",
             input.description || null, payNow ? "pending_payment" : "open", "free", payNow && input.sendInvites ? 1 : 0,
-            input.budgetMin ?? null, input.budgetMax ?? null, input.currency, input.exchangeDate ?? null, input.rsvpDeadline ?? null, input.location ?? null, input.allowWishlists ? 1 : 0, u.id,
+            input.budgetMin ?? null, input.budgetMax ?? null, input.currency, input.exchangeDate ?? null, input.rsvpDeadline ?? null, input.location ?? null, effectiveWishlists(type.wishlist_mode, input.allowWishlists) ? 1 : 0, u.id,
           ],
         );
         if (custom && (input as any).saveTemplate) {
@@ -1463,7 +1478,7 @@ function registerWizardRoutes(app: express.Express) {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE icon = VALUES(icon), color = VALUES(color), match_mode = VALUES(match_mode), allow_wishlists = VALUES(allow_wishlists),
                budget_min = VALUES(budget_min), budget_max = VALUES(budget_max), currency = VALUES(currency), theme_rules = VALUES(theme_rules), reveal_mode = VALUES(reveal_mode)`,
-            [tenantId, u.id, custom.name, custom.icon, custom.color, custom.matchMode, input.allowWishlists ? 1 : 0, input.budgetMin ?? null, input.budgetMax ?? null, input.currency, custom.themeRules || null, custom.revealMode],
+            [tenantId, u.id, custom.name, custom.icon, custom.color, custom.matchMode, effectiveWishlists(type.wishlist_mode, input.allowWishlists) ? 1 : 0, input.budgetMin ?? null, input.budgetMax ?? null, input.currency, custom.themeRules || null, custom.revealMode],
           );
         }
         const eventId = ev.insertId;
@@ -1509,7 +1524,55 @@ function registerWizardRoutes(app: express.Express) {
         });
       }
       await audit(req, "event.create", "event", result.eventId, { tenantId: result.tenantId, actorId: u.id, meta: { via: "wizard", participants: people.length, type: type.slug } });
+      // The draft became an exchange: drop it (best effort — the 30-day purge is the backstop).
+      await db.exec("DELETE FROM wizard_drafts WHERE user_id = ?", [u.id]).catch(() => undefined);
       res.status(201).json({ ok: true, tenant_id: result.tenantId, event_id: result.eventId, event_public_id: result.publicId, invited, payment_required: result.payNow });
+    }),
+  );
+
+  // ── Drafts: one active wizard draft per signed-in user (signed-out drafts stay in the browser). ──
+  // Opaque JSON (the client merges it over an empty draft); never counted toward limits; 30-day expiry.
+  app.get(
+    "/api/wizard/draft",
+    requireAuth(),
+    route(async (_req, res) => {
+      const rows = await db.query(
+        `SELECT step, data, updated_at FROM wizard_drafts WHERE user_id = ? AND updated_at > UTC_TIMESTAMP() - INTERVAL ${DRAFT_TTL_DAYS} DAY LIMIT 1`,
+        [authed(res).id],
+      );
+      const r = rows[0];
+      let data: unknown = null;
+      try {
+        data = r ? (typeof r.data === "string" ? JSON.parse(r.data) : r.data) : null;
+      } catch {
+        data = null;
+      }
+      const draft: WizardDraftRecord | null = r && data && typeof data === "object" && !Array.isArray(data) ? { step: r.step, data: data as WizardDraftRecord["data"], updated_at: r.updated_at } : null;
+      res.json({ ok: true, draft });
+    }),
+  );
+
+  app.put(
+    "/api/wizard/draft",
+    requireAuth(),
+    route(async (req, res) => {
+      const body = draftSchema.parse(req.body ?? {});
+      const json = JSON.stringify(body.data);
+      if (json.length > DRAFT_MAX_BYTES) throw new HttpError(413, "errors.draftTooLarge");
+      await db.exec(
+        "INSERT INTO wizard_drafts (user_id, step, data) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE step = VALUES(step), data = VALUES(data), updated_at = CURRENT_TIMESTAMP",
+        [authed(res).id, body.step, json],
+      );
+      res.json({ ok: true });
+    }),
+  );
+
+  app.delete(
+    "/api/wizard/draft",
+    requireAuth(),
+    route(async (_req, res) => {
+      await db.exec("DELETE FROM wizard_drafts WHERE user_id = ?", [authed(res).id]);
+      res.json({ ok: true });
     }),
   );
 }
@@ -1712,6 +1775,10 @@ function registerTenantRoutes(app: express.Express) {
       const id = parseId(req.params.id);
       const body = eventPatchSchema.parse(req.body ?? {});
       const { event, row } = await loadTenantEvent(tenant_id, id);
+      // Fixed services: can't enable on "off" or disable on "required" (legacy "off" events may still switch theirs off).
+      if (body.allow_wishlists !== undefined && ((event.wishlist_mode === "off" && body.allow_wishlists) || (event.wishlist_mode === "required" && !body.allow_wishlists))) {
+        throw new HttpError(400, "errors.wishlistsFixed");
+      }
       // "Reveal together" exchanges always keep a date (clearing it would reveal every match at once).
       if (event.reveal_mode === "together" && body.exchange_date === null) throw new HttpError(400, "validation.revealNeedsDate");
       if (body.status && body.status !== event.status && !canTransition(event.status, body.status, toBool(row.uses_draw))) {
@@ -2648,6 +2715,7 @@ function registerAdminRoutes(app: express.Express) {
     icon: z.string().regex(/^[a-z-]{2,40}$/).default("gift"),
     uses_draw: z.boolean().default(true),
     requires_pro: z.boolean().default(false),
+    wishlist_mode: z.enum(["off", "required", "optional"]).default("off"),
     is_active: z.boolean().default(true),
     sort_order: z.number().int().min(0).max(10000).default(100),
   });
@@ -2658,8 +2726,8 @@ function registerAdminRoutes(app: express.Express) {
     route(async (req, res) => {
       const b = eventTypeSchema.parse(req.body ?? {});
       const r = await db.exec(
-        "INSERT INTO event_types (slug, name_en, name_es, description_en, description_es, icon, uses_draw, requires_pro, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [b.slug, b.name_en, b.name_es, b.description_en, b.description_es, b.icon, b.uses_draw ? 1 : 0, b.requires_pro ? 1 : 0, b.is_active ? 1 : 0, b.sort_order],
+        "INSERT INTO event_types (slug, name_en, name_es, description_en, description_es, icon, uses_draw, requires_pro, wishlist_mode, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [b.slug, b.name_en, b.name_es, b.description_en, b.description_es, b.icon, b.uses_draw ? 1 : 0, b.requires_pro ? 1 : 0, b.wishlist_mode, b.is_active ? 1 : 0, b.sort_order],
       );
       await audit(req, "admin.catalog.create", "event_type", b.slug, { actorId: authed(res).id });
       res.status(201).json({ ok: true, id: r.insertId });
@@ -2767,7 +2835,8 @@ function registerCronRoutes(app: express.Express) {
       }
       const otp = await db.exec("DELETE FROM otp_codes WHERE created_at < UTC_TIMESTAMP() - INTERVAL 2 DAY");
       const sess = await db.exec("DELETE FROM user_sessions WHERE expires_at < UTC_TIMESTAMP() - INTERVAL 7 DAY OR (is_active = 0 AND created_at < UTC_TIMESTAMP() - INTERVAL 30 DAY)");
-      res.json({ ok: true, otp_deleted: otp.affectedRows, sessions_deleted: sess.affectedRows });
+      const drafts = await db.exec(`DELETE FROM wizard_drafts WHERE updated_at < UTC_TIMESTAMP() - INTERVAL ${DRAFT_TTL_DAYS} DAY`);
+      res.json({ ok: true, otp_deleted: otp.affectedRows, sessions_deleted: sess.affectedRows, drafts_deleted: drafts.affectedRows });
     }),
   );
 }

@@ -198,7 +198,7 @@
         "features": [
           "Secret Santa & White Elephant",
           "Up to 20 people per exchange",
-          "Exclusion rules & wishlists",
+          "Exclusion rules (couples apart)",
           "Email invites & reveal"
         ],
         "cta": "Start free"
@@ -211,7 +211,7 @@
         "features": [
           "Everything in Free",
           "Up to 100 people per exchange",
-          "All services: Wishlist, Book & Cookie swaps",
+          "All services: Wishlist Exchange, Book & Cookie swaps",
           "✨ Create your own exchanges + templates",
           "Cancel anytime"
         ],
@@ -448,7 +448,8 @@
       "currency": "Currency",
       "description": "Message for everyone",
       "descriptionPh": "Dress code, theme, house rules…",
-      "wishlists": "Let people share wishlists"
+      "wishlists": "Let people share wishlists",
+      "wishlistsIncluded": "Everyone shares a wishlist: it's what Wishlist Exchange is about."
     },
     "people": {
       "title": "Who's in?",
@@ -651,7 +652,13 @@
       "order": "Sort order",
       "proOnly": "Pro only",
       "free": "Free",
-      "slug": "Slug (id)"
+      "slug": "Slug (id)",
+      "wishlists": "Wishlists",
+      "wishlistModes": {
+        "off": "Off",
+        "optional": "Organizer chooses",
+        "required": "Always on"
+      }
     },
     "settings": {
       "version": "Production version {{v}}",
@@ -719,7 +726,9 @@
     "cardNotSaved": "We couldn't save that card.",
     "retryFailed": "Card saved, but the retry failed. Try another card.",
     "customIsPro": "“Create your own” always requires Pro.",
-    "cronNotConfigured": "Scheduled job not configured."
+    "cronNotConfigured": "Scheduled job not configured.",
+    "wishlistsFixed": "Wishlists are set by this service and can't be changed.",
+    "draftTooLarge": "This draft is too large to save."
   },
   "validation": {
     "invalid": "Please check the highlighted fields.",
@@ -864,5 +873,26 @@
       "typeLabel": "Workspace name",
       "confirm": "Cancel subscription"
     }
+  },
+  "drafts": {
+    "aria": "Unfinished exchange draft",
+    "badge": "Draft",
+    "untitled": "Untitled exchange",
+    "customKind": "Create your own",
+    "people_one": "{{count}} person",
+    "people_other": "{{count}} people",
+    "nextStep": "Next",
+    "edited": "Edited {{when}}",
+    "syncedAccount": "Saved to your account · kept {{days}} more days",
+    "syncedBrowser": "Saved in this browser · sign in to keep it on every device · kept {{days}} more days",
+    "continue": "Continue",
+    "discard": "Delete draft",
+    "confirmDiscard": "Yes, delete it",
+    "progress": "{{pct}}% done",
+    "resumeKicker": "Welcome back",
+    "resumeTitle": "Pick up where you left off",
+    "resumeSub": "Your exchange is saved just as you left it.",
+    "startNew": "Start a new exchange",
+    "oneDraft": "You can keep one draft at a time — starting a new exchange replaces this one."
   }
 }

@@ -423,7 +423,7 @@ function SettingsTab({ onSaved, onError }: { onSaved: () => void; onError: (e: s
                 budget_min: f.budget_min === "" ? null : Number(f.budget_min),
                 budget_max: f.budget_max === "" ? null : Number(f.budget_max),
                 description: f.description || null,
-                allow_wishlists: f.allow_wishlists,
+                ...(event.wishlist_mode === "optional" || (event.wishlist_mode === "off" && event.allow_wishlists) ? { allow_wishlists: f.allow_wishlists } : {}),
               },
             }),
           ).unwrap();
@@ -457,10 +457,12 @@ function SettingsTab({ onSaved, onError }: { onSaved: () => void; onError: (e: s
         <span>{t("wizard.details.description")}</span>
         <textarea rows={3} value={f.description} onChange={(e) => set("description", e.target.value)} />
       </label>
-      <label className="qs-switch span-2">
-        <input type="checkbox" checked={f.allow_wishlists} onChange={(e) => set("allow_wishlists", e.target.checked)} />
-        <span>{t("wizard.details.wishlists")}</span>
-      </label>
+      {event.wishlist_mode === "optional" || (event.wishlist_mode === "off" && event.allow_wishlists) ? (
+        <label className="qs-switch span-2">
+          <input type="checkbox" checked={f.allow_wishlists} onChange={(e) => set("allow_wishlists", e.target.checked)} />
+          <span>{t("wizard.details.wishlists")}</span>
+        </label>
+      ) : null}
       <div className="span-2">
         <Button type="submit" className="qs-btn-primary">
           {t("common.save")}

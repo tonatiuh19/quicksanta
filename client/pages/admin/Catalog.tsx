@@ -8,7 +8,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchAdminCatalog, saveEventType, type AdminEventType } from "@/store/slices/adminSlice";
 import { fetchEventTypes } from "@/store/slices/catalogSlice";
 
-const blank = { slug: "", name_en: "", name_es: "", description_en: "", description_es: "", icon: "gift", uses_draw: true, requires_pro: false, is_active: true, sort_order: 100 };
+const blank = { slug: "", name_en: "", name_es: "", description_en: "", description_es: "", icon: "gift", uses_draw: true, requires_pro: false, wishlist_mode: "off" as "off" | "required" | "optional", is_active: true, sort_order: 100 };
 
 export default function Catalog() {
   const { t, i18n } = useTranslation();
@@ -106,6 +106,16 @@ export default function Catalog() {
             <label className="qs-switch">
               <input type="checkbox" checked={editing.is_active} onChange={(e) => set("is_active", e.target.checked)} />
               <span>{t("status.active")}</span>
+            </label>
+            <label className="qs-field">
+              <span>{t("admin.catalog.wishlists")}</span>
+              <select value={editing.wishlist_mode} onChange={(e) => set("wishlist_mode", e.target.value)}>
+                {(["off", "optional", "required"] as const).map((m) => (
+                  <option key={m} value={m}>
+                    {t(`admin.catalog.wishlistModes.${m}`)}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="qs-field">
               <span>{t("admin.catalog.order")}</span>

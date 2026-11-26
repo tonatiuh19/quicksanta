@@ -46,7 +46,7 @@ Usamos una cookie de sesión esencial y HttpOnly (`qs_sid`) para mantenerte cone
 
 ## 6. Conservación
 
-Conservamos los datos de cuenta e intercambios mientras tu cuenta o espacio esté activo. Los códigos de acceso se eliminan a los 2 días; las sesiones vencidas se eliminan 7 días después de vencer y las sesiones cerradas a los 30 días. Los registros de facturación se conservan el tiempo que exijan las leyes fiscales. Puedes pedirnos eliminar tus datos en cualquier momento (ver abajo).
+Conservamos los datos de cuenta e intercambios mientras tu cuenta o espacio esté activo. Los códigos de acceso se eliminan a los 2 días; las sesiones vencidas se eliminan 7 días después de vencer y las sesiones cerradas a los 30 días. Los borradores de intercambios sin terminar (guardados en tu navegador y, si iniciaste sesión, en tu cuenta) se eliminan 30 días después de su última edición, o en cuanto los lanzas o los borras. Los registros de facturación se conservan el tiempo que exijan las leyes fiscales. Puedes pedirnos eliminar tus datos en cualquier momento (ver abajo).
 
 ## 7. Derechos ARCO
 

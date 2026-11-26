@@ -100,6 +100,32 @@ paths:
       responses:
         '201': { description: Created }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/wizard/draft:
+    get:
+      tags: [Wizard]
+      summary: GET /api/wizard/draft
+      description: "Guard: requireAuth(). The signed-in user's one active wizard draft ({ draft: { step, data, updated_at } | null }); drafts untouched for 30 days are not returned and are purged by /api/cron/cleanup. Drafts are not exchanges and never count toward plan limits."
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    put:
+      tags: [Wizard]
+      summary: PUT /api/wizard/draft
+      description: "Guard: requireAuth(). Upsert the draft (body { step, data }; data ≤ 64 KB, else 413 errors.draftTooLarge). The client autosaves (debounced) and moves a signed-out browser draft here on sign-in. Deleted automatically when the wizard launches."
+      security: [{ session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object, required: [data], properties: { step: { type: string, enum: [service, design, details, people, rules, account, review] }, data: { type: object } } } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    delete:
+      tags: [Wizard]
+      summary: DELETE /api/wizard/draft
+      description: "Guard: requireAuth(). Discard the draft (\"Delete draft\" / \"Start a new exchange\")."
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/join/{token}:
     get:
       tags: [Join]
@@ -534,6 +560,7 @@ paths:
     get:
       tags: [Cron]
       summary: GET /api/cron/cleanup
+      description: "Bearer CRON_SECRET. Purges old OTP codes, expired/closed sessions and wizard drafts untouched for 30 days."
       responses:
         '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

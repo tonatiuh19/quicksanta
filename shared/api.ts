@@ -137,9 +137,13 @@ export interface EventType {
   uses_draw: boolean;
   /** Pro-only service (Free workspaces see it with a Pro badge). */
   requires_pro: boolean;
+  /** off = no wishlists, required = always on (Wishlist Exchange), optional = organizer decides. */
+  wishlist_mode: WishlistMode;
   is_active: boolean;
   sort_order: number;
 }
+
+export type WishlistMode = "off" | "required" | "optional";
 
 export type CustomIcon = "sparkles" | "gift" | "heart" | "star" | "tree" | "music" | "coffee" | "palette" | "book" | "cookie" | "party" | "snowflake";
 export type CustomColor = "red" | "green" | "gold" | "blue" | "purple" | "pink" | "teal" | "slate";
@@ -187,6 +191,7 @@ export interface EventRow {
   rsvp_deadline: string | null;
   location: string | null;
   allow_wishlists: boolean;
+  wishlist_mode: WishlistMode;
   participant_count: number;
   joined_count: number;
   drawn_at: string | null;
@@ -348,6 +353,13 @@ export interface WizardLaunchInput {
   plan?: EventPlan;
   custom?: CustomDesign;
   saveTemplate?: boolean;
+}
+
+/** The signed-in user's one active wizard draft (GET/PUT /api/wizard/draft). Kept 30 days after the last edit. */
+export interface WizardDraftRecord {
+  step: "service" | "design" | "details" | "people" | "rules" | "account" | "review";
+  data: Partial<WizardLaunchInput>;
+  updated_at: string;
 }
 
 export interface WizardLaunchResult {

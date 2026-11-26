@@ -188,9 +188,8 @@ test("draw → participant reveals their match and saves a wishlist", async ({ p
   await expect(p2.locator(".qs-reveal.is-revealed .qs-reveal-name")).not.toHaveText("");
   const name = await p2.locator(".qs-reveal-name").textContent();
   expect(name).not.toBe("Free 2");
-  await p2.getByRole("textbox", { name: /my wishlist/i }).fill("Books and socks");
-  await p2.getByRole("button", { name: /^save$/i }).click();
-  await expect(p2.getByText("✓ Saved")).toBeVisible();
+  // Secret Santa (Free) has no wishlists: that's the Pro Wishlist Exchange.
+  await expect(p2.getByRole("textbox", { name: /my wishlist/i })).toHaveCount(0);
   await p2.screenshot({ path: `${SHOTS}/04-reveal.png` });
   // A participant can't reach organizer pages.
   await p2.goto("/app/events");

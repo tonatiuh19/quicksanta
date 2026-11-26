@@ -49,6 +49,13 @@ Badges (`StatusBadge`): green = active/joined/open/sent, blue = drawn/organizer/
 
 Service cards: Pro-only cards carry a red→gold "Pro" pill (lock icon on Free workspaces, crown when covered). "Create your own" is a dashed card with a bobbing gradient icon. The Design step has an icon grid (12), color swatches (8 gradients), match-mode and reveal cards, rules textarea and a "save as template" switch; the ticket preview takes the chosen gradient, icon and rules live. Saved designs show as gradient pills above the grid. Keyboard focus = gold outline; selection = red border.
 
+## Drafts
+
+- `DraftCard` (`client/components/DraftCard.tsx`, `.qs-draft`): a ticket with a coloured stub (service icon; custom designs use their own gradient via `--draft-accent`), a gold "Draft" pill, the exchange name (or "Untitled exchange"), people count, next step, relative "Edited …" time, where it is saved + days left, and a `ProgressRing` (`.qs-ring`, share of steps done).
+- Actions: primary **Continue**; destructive actions are two-step (link button → red "Yes, delete it").
+- Shown on the dashboard (above the KPIs, also for users without a workspace) and on the `/start` resume screen (`.qs-resume`: "Pick up where you left off" + "Start a new exchange"). Entering `/start` with a draft always shows the resume screen unless the user came through **Continue**.
+- Under 560px the ring moves to the top-right corner and the buttons stack full width. Entry animation respects `prefers-reduced-motion`.
+
 ## Billing portal
 
 `/app/billing`: Pro "plan hero" (red gradient with a slow shine, crown icon, price/month, renewal line, usage meter that turns gold→red near the limit); Free shows the upgrade box. Payment-method card shows a mini credit card in brand colors. Invoices table with view/PDF icons. Banners: red past-due (fix card), gold scheduled-cancel (resume). Cancel flow is a 3-step modal with a progress bar: reason chips (optional) → save offer card (bobbing icon) → confirm by typing the workspace name (primary button = Keep Pro). Legal pages use `.qs-legal` (820px reading column, scrollable tables).

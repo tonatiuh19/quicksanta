@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { CustomDesign, WizardExclusion, WizardLaunchInput, WizardLaunchResult, WizardParticipant } from "@shared/api";
+import type { CustomDesign, WizardDraftRecord, WizardExclusion, WizardLaunchInput, WizardLaunchResult, WizardParticipant } from "@shared/api";
 import { api } from "@/lib/api";
 import { createApiThunk } from "@/lib/portalThunk";
 
@@ -12,6 +12,10 @@ export interface WizardState {
   launching: boolean;
   error: string | null;
   result: WizardLaunchResult | null;
+  /** ISO time of the last edit (null = nothing worth keeping). */
+  savedAt: string | null;
+  /** A draft came back (reload / another device): /start asks "continue or start new?" first. */
+  resumePending: boolean;
 }
 
 const DRAFT_KEY = "qs_wizard_draft";
@@ -43,17 +47,63 @@ export function draftUsesDraw(d: WizardLaunchInput, type: { slug: string; uses_d
   return type?.uses_draw !== false;
 }
 
-function loadDraft(): WizardLaunchInput {
+/** Drafts are kept 30 days after the last edit (browser + DB; the daily cron purges the DB). */
+export const DRAFT_TTL_DAYS = 30;
+const TTL_MS = DRAFT_TTL_DAYS * 86_400_000;
+
+export interface StoredDraft {
+  draft: WizardLaunchInput;
+  step: WizardStep;
+  savedAt: string | null;
+}
+
+/** Only real work is a draft: a name, people, a design name, or progress past the first step (not the auto-filled organizer name). */
+export function draftHasContent(d: WizardLaunchInput, step: WizardStep = "service"): boolean {
+  return Boolean(d.name.trim() || d.participants.length || d.exclusions.length || d.custom?.name?.trim() || step !== "service");
+}
+
+/** Untrusted JSON (localStorage / DB) → a well-formed draft. */
+export function sanitizeDraft(raw: unknown): WizardLaunchInput {
+  const base = emptyDraft();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return base;
+  const r = raw as Partial<WizardLaunchInput>;
+  return {
+    ...base,
+    ...r,
+    name: typeof r.name === "string" ? r.name : "",
+    eventTypeSlug: typeof r.eventTypeSlug === "string" ? r.eventTypeSlug : base.eventTypeSlug,
+    organizerName: typeof r.organizerName === "string" ? r.organizerName : "",
+    participants: Array.isArray(r.participants) ? r.participants.filter((p) => p && typeof p.email === "string") : [],
+    exclusions: Array.isArray(r.exclusions) ? r.exclusions.filter((x) => x && typeof x.a === "string" && typeof x.b === "string") : [],
+    custom: { ...emptyDesign(), ...(r.custom && typeof r.custom === "object" ? r.custom : {}) },
+  };
+}
+
+export const asStep = (v: unknown): WizardStep => ((WIZARD_STEPS as readonly string[]).includes(v as string) ? (v as WizardStep) : "service");
+/** DB DATETIME strings are UTC ("YYYY-MM-DD HH:MM:SS"). */
+export const utcIso = (v: string) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(v) ? v : `${v.replace(" ", "T")}Z`).toISOString();
+
+export function loadDraft(now = Date.now()): StoredDraft {
+  const empty: StoredDraft = { draft: emptyDraft(), step: "service", savedAt: null };
   try {
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem(DRAFT_KEY) : null;
-    return raw ? { ...emptyDraft(), ...JSON.parse(raw) } : emptyDraft();
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw);
+    // v1 stored the bare draft; v2 = { v: 2, draft, step, savedAt }.
+    const stored: StoredDraft =
+      parsed && parsed.v === 2 ? { draft: sanitizeDraft(parsed.draft), step: asStep(parsed.step), savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : null } : { draft: sanitizeDraft(parsed), step: "service", savedAt: new Date(now).toISOString() };
+    if (stored.savedAt && now - Date.parse(stored.savedAt) > TTL_MS) {
+      clearDraft();
+      return empty;
+    }
+    return draftHasContent(stored.draft, stored.step) ? stored : empty;
   } catch {
-    return emptyDraft();
+    return empty;
   }
 }
-export function persistDraft(d: WizardLaunchInput) {
+export function persistDraft(d: WizardLaunchInput, step: WizardStep = "service", savedAt: string | null = new Date().toISOString()) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ v: 2, draft: d, step, savedAt }));
   } catch {
     /* private mode */
   }
@@ -66,11 +116,32 @@ export function clearDraft() {
   }
 }
 
+// Signed-in drafts also live in the DB (one per user) so they follow the user across devices.
+export const fetchServerDraft = createApiThunk("wizard/draft/fetch", async () => (await api.get<{ draft: WizardDraftRecord | null }>("/wizard/draft")).data.draft);
+export const saveServerDraft = createApiThunk("wizard/draft/save", async (arg: { step: WizardStep; data: WizardLaunchInput }) => {
+  await api.put("/wizard/draft", arg);
+});
+export const deleteServerDraft = createApiThunk("wizard/draft/delete", async () => {
+  await api.delete("/wizard/draft");
+});
+
 export const launchWizard = createApiThunk("wizard/launch", async (draft: WizardLaunchInput) => {
   const { custom, saveTemplate, ...rest } = draft;
   const body = draft.eventTypeSlug === "custom" ? { ...rest, custom, saveTemplate: Boolean(saveTemplate) } : rest;
   return (await api.post<WizardLaunchResult>("/wizard/launch", body)).data;
 });
+
+/** The steps this draft actually walks through (account skipped when signed in, rules only for draws, design only for custom). */
+export function wizardSteps(d: WizardLaunchInput, type: { slug: string; uses_draw: boolean } | undefined, signedIn: boolean): WizardStep[] {
+  const usesDraw = draftUsesDraw(d, type);
+  return WIZARD_STEPS.filter((s) => !(s === "account" && signedIn) && !(s === "rules" && !usesDraw) && !(s === "design" && d.eventTypeSlug !== "custom"));
+}
+/** A saved step that this flow skips (e.g. "account" after signing in) → the closest earlier step that exists. */
+export function clampStep(step: WizardStep, steps: WizardStep[]): WizardStep {
+  if (steps.includes(step)) return step;
+  const order = WIZARD_STEPS.indexOf(step);
+  return [...steps].reverse().find((s) => WIZARD_STEPS.indexOf(s) <= order) ?? steps[0];
+}
 
 export const ME = "me";
 /** Everyone who will take part (organizer first when included). `ref` is what exclusions store. */
@@ -81,7 +152,10 @@ export function wizardPeople(d: WizardLaunchInput, meEmail?: string): Array<Wiza
 
 const slice = createSlice({
   name: "wizard",
-  initialState: (): WizardState => ({ step: "service", draft: loadDraft(), launching: false, error: null, result: null }),
+  initialState: (): WizardState => {
+    const stored = loadDraft();
+    return { step: stored.step, draft: stored.draft, launching: false, error: null, result: null, savedAt: stored.savedAt, resumePending: Boolean(stored.savedAt) };
+  },
   reducers: {
     goTo(s, a: PayloadAction<WizardStep>) {
       s.step = a.payload;
@@ -111,7 +185,26 @@ const slice = createSlice({
     },
     resetWizard() {
       clearDraft();
-      return { step: "service" as WizardStep, draft: emptyDraft(), launching: false, error: null, result: null };
+      return { step: "service" as WizardStep, draft: emptyDraft(), launching: false, error: null, result: null, savedAt: null, resumePending: false };
+    },
+    /** A draft loaded from the account (another device / newer than the browser's). */
+    hydrateDraft(s, a: PayloadAction<StoredDraft>) {
+      s.draft = a.payload.draft;
+      s.step = a.payload.step;
+      s.savedAt = a.payload.savedAt;
+      s.resumePending = true;
+      s.error = null;
+    },
+    /** Entering /start with a draft (not via "Continue"): ask first. */
+    askResume(s) {
+      if (!s.result && draftHasContent(s.draft, s.step)) s.resumePending = true;
+    },
+    /** The user chose "Continue" (resume screen / dashboard card). */
+    resumeDraft(s) {
+      s.resumePending = false;
+    },
+    draftSaved(s, a: PayloadAction<string | null>) {
+      s.savedAt = a.payload;
     },
   },
   extraReducers: (b) =>
@@ -123,6 +216,8 @@ const slice = createSlice({
       .addCase(launchWizard.fulfilled, (s, a) => {
         s.launching = false;
         s.result = a.payload;
+        s.savedAt = null;
+        s.resumePending = false;
         clearDraft();
       })
       .addCase(launchWizard.rejected, (s, a) => {
@@ -131,5 +226,5 @@ const slice = createSlice({
       }),
 });
 
-export const { goTo, patchDraft, patchDesign, addParticipants, removeParticipant, addExclusion, removeExclusion, resetWizard } = slice.actions;
+export const { goTo, patchDraft, patchDesign, addParticipants, removeParticipant, addExclusion, removeExclusion, resetWizard, hydrateDraft, askResume, resumeDraft, draftSaved } = slice.actions;
 export default slice.reducer;

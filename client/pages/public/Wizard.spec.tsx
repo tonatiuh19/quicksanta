@@ -7,7 +7,8 @@ import { mockApi, renderApp, user } from "@/test/render";
 const TYPES = {
   ok: true,
   items: [
-    { id: 1, slug: "secret_santa", name_en: "Secret Santa", name_es: "Amigo secreto", description_en: "Draw", description_es: "", icon: "gift", uses_draw: true, is_active: true, sort_order: 1 },
+    { id: 1, slug: "secret_santa", name_en: "Secret Santa", name_es: "Amigo secreto", description_en: "Draw", description_es: "", icon: "gift", uses_draw: true, wishlist_mode: "off", is_active: true, sort_order: 1 },
+    { id: 5, slug: "wishlist_exchange", name_en: "Wishlist Exchange", name_es: "Listas", description_en: "Lists", description_es: "", icon: "list", uses_draw: true, requires_pro: true, wishlist_mode: "required", is_active: true, sort_order: 5 },
     { id: 2, slug: "white_elephant", name_en: "White Elephant", name_es: "Elefante", description_en: "Steal", description_es: "", icon: "party", uses_draw: false, is_active: true, sort_order: 2 },
     { id: 3, slug: "book_swap", name_en: "Book Swap", name_es: "Libros", description_en: "Books", description_es: "", icon: "book", uses_draw: true, requires_pro: true, is_active: true, sort_order: 3 },
     { id: 4, slug: "custom", name_en: "Create your own", name_es: "Crea el tuyo", description_en: "Design it", description_es: "", icon: "sparkles", uses_draw: true, requires_pro: true, is_active: true, sort_order: 999 },
@@ -152,5 +153,21 @@ describe("Wizard · Pro services and Create your own", () => {
     mockApi({ get: { "/event-types": TYPES, "/auth/me": { user: me } } });
     renderApp(<Wizard />, { route: "/start", path: "/start", signedIn: me });
     expect(await screen.findByText("1 person")).toBeInTheDocument();
+  });
+});
+
+describe("Wizard · wishlists by service", () => {
+  it("Secret Santa shows no wishlist toggle; Wishlist Exchange says they're included", async () => {
+    const me = user({ memberships: [], active_tenant_id: null });
+    mockApi({ get: { "/event-types": TYPES, "/auth/me": { user: me } } });
+    renderApp(<Wizard />, { route: "/start", path: "/start", signedIn: me });
+    await userEvent.click(await screen.findByRole("radio", { name: /^secret santa/i }));
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+    expect(screen.queryByText(/let people share wishlists/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /back/i }));
+    await userEvent.click(screen.getByRole("radio", { name: /wishlist exchange/i }));
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+    expect(screen.getByText(/Everyone shares a wishlist/)).toBeInTheDocument();
+    expect(screen.queryByText(/let people share wishlists/i)).not.toBeInTheDocument();
   });
 });

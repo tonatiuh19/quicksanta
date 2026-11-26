@@ -64,6 +64,10 @@ function expressPlugin(): Plugin {
         });
       }
       const server = http.createServer(createServer());
+      // The Vite proxy reuses keep-alive sockets; Node's 5s default made the API close one just as the proxy
+      // sent on it (ECONNRESET → random "Network Error" in the browser). Outlive the proxy's idle sockets.
+      server.keepAliveTimeout = 65_000;
+      server.headersTimeout = 66_000;
       devApi.__qsDevApiServer = server;
       server.on("error", (e) => console.error(`❌ Express API failed to start on :${API_PORT}:`, e.message));
       server.listen(API_PORT, () => {

@@ -1,8 +1,7 @@
 import { combineReducers, configureStore, type UnknownAction } from "@reduxjs/toolkit";
 import auth, { logout, sessionExpired, switchTenant } from "./slices/authSlice";
-import wizard, { clearDraft, emptyDraft, persistDraft } from "./slices/wizardSlice";
-
-const EMPTY_DRAFT = JSON.stringify(emptyDraft());
+import wizard, { clearDraft } from "./slices/wizardSlice";
+import { createDraftSync } from "./draftSync";
 import catalog from "./slices/catalogSlice";
 import app from "./slices/appSlice";
 import admin from "./slices/adminSlice";
@@ -12,11 +11,13 @@ const combined = combineReducers({ auth, wizard, catalog, app, admin, ...gridRed
 
 /**
  * Never show one session's / workspace's data in another:
- * - logout / session expiry → everything except the public catalog is reset (incl. the wizard draft).
+ * - logout / expiry of a signed-in session → everything except the public catalog is reset (incl. the browser copy
+ *   of the wizard draft; the account copy stays in the DB). A signed-out visitor's 401 on /auth/me is not an expiry:
+ *   their browser draft must survive reloads.
  * - workspace switch → all workspace data + grid queries reset (auth + wizard kept).
  */
 export function rootReducer(state: ReturnType<typeof combined> | undefined, action: UnknownAction): ReturnType<typeof combined> {
-  if (state && (logout.fulfilled.match(action) || sessionExpired.match(action))) {
+  if (state && (logout.fulfilled.match(action) || (sessionExpired.match(action) && state.auth.user))) {
     clearDraft();
     const fresh = combined(undefined, { type: "@@reset" });
     return combined({ ...fresh, catalog: state.catalog }, action);
@@ -29,18 +30,12 @@ export function rootReducer(state: ReturnType<typeof combined> | undefined, acti
 }
 
 export function makeStore(preloadedState?: Partial<ReturnType<typeof combined>>) {
-  const store = configureStore({ reducer: rootReducer as any, preloadedState: preloadedState as any });
-  // Wizard drafts survive reloads (and the OTP round trip).
-  let last = store.getState().wizard.draft;
-  store.subscribe(() => {
-    const d = store.getState().wizard.draft;
-    if (d === last || store.getState().wizard.result) return;
-    last = d;
-    // An untouched draft (e.g. right after logout) is removed, not saved.
-    if (JSON.stringify(d) === EMPTY_DRAFT) clearDraft();
-    else persistDraft(d);
+  // Draft persistence (browser + account autosave + reconcile on sign-in) lives in ./draftSync.
+  return configureStore({
+    reducer: rootReducer as any,
+    preloadedState: preloadedState as any,
+    middleware: (gdm) => gdm().prepend(createDraftSync()),
   });
-  return store;
 }
 
 export const store = makeStore();
