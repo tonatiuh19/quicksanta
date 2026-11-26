@@ -68,7 +68,8 @@
     "pending_payment": "Awaiting payment",
     "pending": "Pending",
     "succeeded": "Paid",
-    "refunded": "Refunded"
+    "refunded": "Refunded",
+    "canceling": "Ends soon"
   },
   "services": {
     "secret_santa": {
@@ -201,13 +202,13 @@
       "pro": {
         "name": "Pro",
         "price": "$8.90",
-        "per": "per exchange",
+        "per": "per month · per workspace",
         "desc": "For offices and big celebrations.",
         "features": [
           "Everything in Free",
           "Up to 100 people per exchange",
-          "Upgrade any exchange in one click",
-          "Secure card checkout",
+          "All exchanges in your workspace",
+          "Secure card billing, cancel anytime",
           "Priority support"
         ],
         "cta": "Start with Pro"
@@ -229,7 +230,7 @@
     "faq": {
       "title": "Questions?",
       "q1": "Is it really free?",
-      "a1": "Yes. Exchanges with up to 20 people are free. Bigger groups (up to 100) pay $8.90 once per exchange with Pro.",
+      "a1": "Yes. Exchanges with up to 20 people are free. For bigger groups (up to 100 people), Pro is $8.90 per month per workspace and you can cancel anytime.",
       "q2": "Can the organizer see who got whom?",
       "a2": "No. Matches are private: only each participant sees their own. Organizers just see who has revealed.",
       "q3": "Do people need a password or an app?",
@@ -278,7 +279,8 @@
     "profile": "Profile",
     "sectionOverview": "Overview",
     "sectionOrganize": "Organize",
-    "sectionSetup": "Setup"
+    "sectionSetup": "Setup",
+    "billing": "Plan & billing"
   },
   "dashboard": {
     "hello": "Hi, {{name}}",
@@ -520,7 +522,9 @@
       "emails": "Emails (7d)",
       "failures": "{{n}} failed",
       "revenue": "Revenue",
-      "revenue30": "{{amount}} last 30d · {{n}} Pro"
+      "revenue30": "{{amount}} last 30d · {{n}} Pro",
+      "mrr": "MRR",
+      "subs": "{{n}} active Pro"
     },
     "tenants": {
       "sub": "Manage every workspace: status, plan and limits.",
@@ -536,7 +540,9 @@
         "plan": "Plan",
         "members": "Members",
         "events": "Exchanges",
-        "created": "Created"
+        "created": "Created",
+        "subscription": "Subscription",
+        "renews": "Renews"
       }
     },
     "users": {
@@ -590,13 +596,17 @@
       "default_max_participants": "Default max people per exchange",
       "free_max_participants": "Free plan: max people per exchange",
       "pro_max_participants": "Pro plan: max people per exchange",
-      "pro_price_cents": "Pro price per exchange (cents, e.g. 890 = $8.90)"
+      "pro_price_cents": "Pro price per exchange (cents, e.g. 890 = $8.90)",
+      "subscription_grace_days": "Grace days after a failed renewal",
+      "save_offer_percent": "Cancel-flow offer (% off next month)"
     },
     "payments": {
-      "sub": "Every Pro checkout, server-side filtered and sorted.",
+      "sub": "Every Pro subscription invoice and payment, server-side filtered and sorted.",
       "amount": "Amount",
       "payer": "Payer",
-      "card": "Card"
+      "card": "Card",
+      "what": "What",
+      "subscription": "Pro subscription"
     }
   },
   "errors": {
@@ -636,7 +646,12 @@
     "invalidTransition": "That status change isn't allowed.",
     "alreadyPro": "This exchange is already Pro.",
     "paymentMismatch": "That payment doesn't belong to this exchange.",
-    "paymentNotCompleted": "The payment wasn't completed."
+    "paymentNotCompleted": "The payment wasn't completed.",
+    "noSubscription": "There's no active subscription for this workspace.",
+    "offerUsed": "This offer was already used.",
+    "confirmNameMismatch": "The name doesn't match your workspace.",
+    "cardNotSaved": "We couldn't save that card.",
+    "retryFailed": "Card saved, but the retry failed. Try another card."
   },
   "validation": {
     "invalid": "Please check the highlighted fields.",
@@ -651,8 +666,8 @@
   },
   "checkout": {
     "kicker": "Pro exchange",
-    "heading": "Unlock Pro for this exchange",
-    "sub": "{{count}} people are in. Pay once and we'll open the exchange and send every invitation.",
+    "heading": "Unlock Pro for your workspace",
+    "sub": "{{count}} people are in. Subscribe to Pro and we'll open the exchange and send every invitation.",
     "title": "Pay {{price}} securely",
     "lead": "One-time payment for “{{name}}”. No subscription.",
     "cardNumber": "Card number",
@@ -664,21 +679,120 @@
     "paid": "Paid!",
     "trustEncrypted": "Encrypted by Stripe",
     "trustNeverStored": "We never see or store your card",
-    "successTitle": "Payment received. Pro unlocked! 🎉",
+    "successTitle": "Welcome to Pro! 🎉",
     "successToast": "Pro unlocked: invitations sent and room for more people.",
     "later": "Pay later (the exchange stays closed until paid)",
     "planLabel": "Plan",
     "upTo": "Up to {{count}} people",
     "needsPro": "{{count}} people is above the free limit of {{max}}. This exchange will be Pro.",
     "enterprise": "More than {{max}} people? That's Enterprise. Contact us and we'll set it up.",
-    "launchPay": "Launch & pay {{price}}",
+    "launchPay": "Launch & subscribe · {{price}}/mo",
     "pendingTitle": "Payment pending",
-    "pendingBody": "Pay {{price}} to open this exchange and send the invitations.",
-    "payNow": "Pay {{price}}",
+    "pendingBody": "Subscribe to Pro ({{price}}/month) to open this exchange and send the invitations.",
+    "payNow": "Subscribe · {{price}}/mo",
     "upgradeTitle": "{{used}}/{{max}} people on the free plan",
-    "upgradeBody": "Upgrade this exchange to Pro for up to {{count}} people · {{price}} once.",
+    "upgradeBody": "Pro: up to {{count}} people in every exchange · {{price}}/month.",
     "upgrade": "Upgrade to Pro",
-    "proActive": "Pro exchange · up to {{max}} people",
-    "modalTitle": "Upgrade to Pro"
+    "proActive": "Pro workspace · up to {{max}} people",
+    "modalTitle": "Upgrade to Pro",
+    "subTitle": "Pro · {{price}}/month",
+    "subLead": "For the “{{name}}” workspace. Renews monthly, cancel anytime.",
+    "subscribe": "Subscribe · {{price}}/mo",
+    "subFine": "Billed monthly. Cancel anytime from Plan & billing; Pro stays on until the end of the paid month."
+  },
+  "legal": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "and": "and",
+    "consentPrefix": "By continuing you agree to our"
+  },
+  "billing": {
+    "title": "Plan & billing",
+    "sub": "Your plan, payment method and invoices.",
+    "currentPlan": "Current plan",
+    "month": "month",
+    "renewsOn": "Renews on {{date}} for {{price}}",
+    "endsOn": "Pro ends on {{date}}",
+    "largest": "Largest active exchange",
+    "usageLine": "{{events}} active exchange(s) in this workspace",
+    "upgrade": "Upgrade to Pro · {{price}}/mo",
+    "upgradeTitle": "Upgrade to Pro",
+    "pendingExchanges": "{{count}} exchange(s) are waiting for Pro to open.",
+    "paymentMethod": "Payment method",
+    "noCard": "No card on file yet.",
+    "updateCard": "Update payment method",
+    "updateTitle": "Update your card",
+    "updateLead": "Used for future renewals. Your current card is replaced.",
+    "saveCard": "Save card",
+    "cardSaved": "Saved!",
+    "cardSavedTitle": "Card updated ✓",
+    "invoices": "Invoices",
+    "noInvoices": "No invoices yet.",
+    "inv": {
+      "date": "Date",
+      "number": "Invoice",
+      "amount": "Amount",
+      "status": "Status",
+      "view": "View invoice",
+      "pdf": "Download PDF",
+      "st": {
+        "paid": "Paid",
+        "open": "Due",
+        "void": "Void",
+        "uncollectible": "Uncollectible",
+        "draft": "Draft"
+      }
+    },
+    "status": {
+      "active": "Active",
+      "trialing": "Trial",
+      "past_due": "Payment failed",
+      "canceling": "Ends soon",
+      "canceled": "Canceled",
+      "incomplete": "Incomplete",
+      "incomplete_expired": "Expired",
+      "unpaid": "Unpaid",
+      "paused": "Paused",
+      "none": "—"
+    },
+    "pastDueTitle": "Your last payment didn't go through",
+    "pastDueBody": "Pro stays on for {{days}} more days. Update your card and we'll retry right away.",
+    "fixPayment": "Update card & retry",
+    "endsTitle": "Pro ends on {{date}}",
+    "endsBody": "Changed your mind? Resume and nothing changes.",
+    "resume": "Resume Pro",
+    "manage": "Manage plan",
+    "manageHint": "More options for your subscription.",
+    "cancelLink": "Cancel subscription",
+    "subscribedToast": "You're on Pro! Pending exchanges are open and invitations are on their way.",
+    "cardToast": "Payment method updated.",
+    "resumedToast": "Pro resumed. Thanks for staying!",
+    "offerToast": "Offer applied: your next month is discounted. Thanks for staying! 💛",
+    "cancelledToast": "Subscription cancelled. Pro stays on until the end of the paid month.",
+    "cancel": {
+      "title": "Cancel Pro",
+      "why": "Why are you leaving?",
+      "feedback": "Anything we could do better? (optional)",
+      "keep": "Keep Pro",
+      "noThanks": "No thanks, continue",
+      "reasons": {
+        "too_expensive": "It's too expensive",
+        "only_once": "I only needed it once",
+        "missing_features": "Missing features I need",
+        "too_complex": "Too complicated",
+        "switching": "Switching to another tool",
+        "other": "Other"
+      },
+      "offerTitle": "Stay and get {{percent}}% off next month",
+      "offerBody": "Your next renewal will be {{percent}}% off the usual {{price}}. Everything stays as it is.",
+      "acceptOffer": "Stay with {{percent}}% off",
+      "confirmTitle": "Before you go",
+      "lose1": "Pro stays on until {{date}}; you won't be charged again.",
+      "lose2": "After that, exchanges can't grow beyond 20 people.",
+      "lose3": "Your exchanges, draws and wishlists are kept.",
+      "typeName": "Type “{{name}}” to confirm",
+      "typeLabel": "Workspace name",
+      "confirm": "Cancel subscription"
+    }
   }
 }

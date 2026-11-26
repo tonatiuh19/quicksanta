@@ -13,6 +13,8 @@ const FIELDS: Array<{ key: string; type: "number" | "bool" }> = [
   { key: "free_max_participants", type: "number" },
   { key: "pro_max_participants", type: "number" },
   { key: "pro_price_cents", type: "number" },
+  { key: "subscription_grace_days", type: "number" },
+  { key: "save_offer_percent", type: "number" },
 ];
 
 export default function AdminSettings() {

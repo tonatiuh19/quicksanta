@@ -47,11 +47,15 @@ Guards: last owner can't be demoted/suspended; last organizer can't be removed; 
 | Plan | Price | People per exchange |
 |---|---|---|
 | Free | $0 | up to `free_max_participants` (20) |
-| Pro | `pro_price_cents` (890 = $8.90 USD) once per exchange | up to `pro_max_participants` (100) |
+| Pro | **$8.90/month per workspace** — Stripe subscription on `STRIPE_PLATFORM_PRICE_ID` | up to `pro_max_participants` (100) in every exchange |
 | Enterprise | custom (tenant `plan = enterprise`, set in Command Center) | tenant `max_participants_per_event` |
 
-- Pro checkout = Stripe PaymentIntent (`POST /api/app/events/:id/checkout`) + Stripe Elements card fields (`client/components/billing/CheckoutCard.tsx`) + server verification (`/checkout/confirm`) + webhook (`/api/webhooks/stripe`). `finalizePayment` is idempotent (guard `paid_at IS NULL`).
-- Wizard Pro launches create the exchange as `pending_payment` with invites queued (`invites_pending`); payment opens it and sends them.
+- The charged amount is the Stripe price; `pro_price_cents` is display only (keep them in sync).
+- Subscribe: `POST /api/app/billing/subscribe` (customer per tenant, `default_incomplete`, deterministic idempotency key per tenant/attempt) → Stripe Elements `confirmCardPayment` (3DS handled) → `/billing/sync`. Webhook (`customer.subscription.*`, `invoice.paid`, `invoice.payment_failed`) does the same in the background; `syncTenantSubscription` mirrors status/period/card onto `tenants` and sets `tenants.plan`.
+- Portal `/app/billing` (organizers): plan + usage, card update (SetupIntent → default PM; retries a past_due invoice), invoices (hosted + PDF), cancel flow under "Manage plan" (optional reason → one save offer `save_offer_percent` → type the workspace name) → cancel at period end; past_due cancels now + voids the open invoice; resume.
+- Lapse: `past_due` keeps Pro for `subscription_grace_days` from `past_due_since`; then Free. Exchanges keep running; only growth above the Free limit is blocked.
+- Wizard Pro launches on a Free workspace create the exchange as `pending_payment` with invites queued (`invites_pending`); the subscription opens them and sends the invites (tenant locale).
+- Legal: `/privacy` and `/terms` render `client/content/legal/{privacy,terms}.{en,es}.md` (Disrupting Labs, Mexico). Update the Markdown when data handling, prices or billing rules change.
 - Status changes go through `canTransition` (no reopening drawn/cancelled, no bypassing payment).
 - All prices/limits are `system_settings` (Command Center → Platform settings). Stripe is faked in tests via `__test.setPaymentsApi`.
 

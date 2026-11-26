@@ -117,12 +117,12 @@ export default function Wizard() {
           <h2>{t("checkout.heading")}</h2>
           <p className="qs-page-sub">{t("checkout.sub", { count: people.length })}</p>
           <CheckoutCard
-            eventId={result.event_id}
-            eventName={d.name}
+            mode="subscribe"
+            label={user?.memberships.find((m) => m.tenant_id === result.tenant_id)?.tenant_name ?? d.name}
             amountCents={pricing?.pro_price_cents ?? 890}
             currency={pricing?.pro_currency ?? "usd"}
             payerName={d.organizerName || user?.full_name}
-            onPaid={() => setPaid(true)}
+            onDone={() => setPaid(true)}
           />
           <button
             type="button"
@@ -365,7 +365,10 @@ export default function Wizard() {
                   <strong>
                     {t("landing.pricing.pro.name")} <Sparkles size={14} />
                   </strong>
-                  <span className="qs-plan-opt-price">{price}</span>
+                  <span className="qs-plan-opt-price">
+                    {price}
+                    <small>/{t("billing.month")}</small>
+                  </span>
                   <span>{t("checkout.upTo", { count: proMax })}</span>
                 </button>
               </div>

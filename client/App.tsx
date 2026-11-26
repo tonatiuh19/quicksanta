@@ -7,6 +7,7 @@ import Login from "@/pages/auth/Login";
 
 // Route-level code splitting: public pages stay in the main chunk, portals load on demand.
 const Wizard = lazy(() => import("@/pages/public/Wizard"));
+const Legal = lazy(() => import("@/pages/public/Legal"));
 const Join = lazy(() => import("@/pages/public/Join"));
 const AppLayout = lazy(() => import("@/pages/app/AppLayout"));
 const Dashboard = lazy(() => import("@/pages/app/Dashboard"));
@@ -16,6 +17,7 @@ const MyEvents = lazy(() => import("@/pages/app/MyEvents"));
 const MyAssignment = lazy(() => import("@/pages/app/MyAssignment"));
 const Members = lazy(() => import("@/pages/app/Members"));
 const WorkspaceSettings = lazy(() => import("@/pages/app/WorkspaceSettings"));
+const Billing = lazy(() => import("@/pages/app/Billing"));
 const Profile = lazy(() => import("@/pages/app/Profile"));
 const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
 const Overview = lazy(() => import("@/pages/admin/Overview"));
@@ -42,6 +44,8 @@ export function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/start" element={<Wizard />} />
         <Route path="/join/:token" element={<Join />} />
+        <Route path="/privacy" element={<Legal doc="privacy" />} />
+        <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="events" element={<Events />} />
@@ -49,6 +53,7 @@ export function AppRoutes() {
           <Route path="my" element={<MyEvents />} />
           <Route path="my/:publicId" element={<MyAssignment />} />
           <Route path="members" element={<Members />} />
+          <Route path="billing" element={<Billing />} />
           <Route path="settings" element={<WorkspaceSettings />} />
           <Route path="profile" element={<Profile />} />
         </Route>

@@ -5,7 +5,7 @@ import EventDetail from "./EventDetail";
 import { fail, mockApi, renderApp, user } from "@/test/render";
 
 const ev = (status = "open") => ({ id: 5, public_id: "EVT", tenant_id: 7, event_type_slug: "secret_santa", event_type_name: "Secret Santa", name: "Office", description: null, status, plan: "free", paid_at: null, budget_min: 20, budget_max: 30, currency: "USD", exchange_date: "2026-12-20", rsvp_deadline: null, location: null, allow_wishlists: true, participant_count: 4, joined_count: 2, drawn_at: null, created_at: "" });
-const detail = (status = "open") => ({ ok: true, event: ev(status), uses_draw: true, max_participants: 20, tenant_plan: "free", pricing: { free_max_participants: 20, pro_max_participants: 100, pro_price_cents: 890, pro_currency: "usd" }, exclusions: [], assignments: { total: 0, viewed: 0 } });
+const detail = (status = "open") => ({ ok: true, event: ev(status), uses_draw: true, max_participants: 20, tenant_plan: "free", pricing: { free_max_participants: 20, pro_max_participants: 100, pro_price_cents: 890, pro_currency: "usd", pro_interval: "month", grace_days: 3, save_offer_percent: 50 }, exclusions: [], assignments: { total: 0, viewed: 0 } });
 const people = { ok: true, items: [{ id: 1, public_id: "P1", event_id: 5, name: "Ana", email: "ana@x.com", status: "invited", has_wishlist: false, invited_at: null, joined_at: null, created_at: "" }], pagination: { page: 1, limit: 50, total: 1, totalPages: 1 } };
 
 describe("EventDetail (organizer)", () => {
@@ -55,11 +55,11 @@ describe("EventDetail · Pro", () => {
     mockApi({ get: { "/app/events/5": detail(), "/app/events/5/participants": people } });
     const { unmount } = renderApp(<EventDetail />, { route: "/app/events/5", path: "/app/events/:id", signedIn: user() });
     expect(await screen.findByText("4/20 people on the free plan")).toBeInTheDocument();
-    expect(screen.getByText(/up to 100 people · \$8\.90 once/i)).toBeInTheDocument();
+    expect(screen.getByText(/up to 100 people in every exchange · \$8\.90\/month/i)).toBeInTheDocument();
     unmount();
     mockApi({ get: { "/app/events/5": detail("pending_payment"), "/app/events/5/participants": people } });
     renderApp(<EventDetail />, { route: "/app/events/5", path: "/app/events/:id", signedIn: user() });
     expect(await screen.findByText("Payment pending")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pay $8.90" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Subscribe · $8.90/mo" })).toBeInTheDocument();
   });
 });

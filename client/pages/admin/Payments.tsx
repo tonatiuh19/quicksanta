@@ -11,10 +11,21 @@ export default function Payments() {
     { key: "amount", label: t("admin.payments.amount"), sortable: true, render: (r) => <strong>{formatMoney(r.amount_cents, r.currency)}</strong> },
     { key: "status", label: t("admin.tenants.col.status"), sortable: true, render: (r) => <StatusBadge value={r.status} /> },
     { key: "tenant", label: t("admin.events.tenant"), sortable: true, render: (r) => r.tenant_name },
-    { key: "event_name", label: t("events.col.name"), render: (r) => r.event_name },
+    { key: "event_name", label: t("admin.payments.what"), render: (r) => (r.kind === "invoice" ? t("admin.payments.subscription") : r.event_name ?? "—") },
     { key: "payer_email", label: t("admin.payments.payer"), render: (r) => r.payer_email ?? "—" },
     { key: "card", label: t("admin.payments.card"), render: (r) => (r.card_last4 ? `${(r.card_brand ?? "").toUpperCase()} •••• ${r.card_last4}` : "—") },
-    { key: "provider_payment_id", label: "Stripe", render: (r) => <code>{r.provider_payment_id}</code> },
+    {
+      key: "provider_payment_id",
+      label: "Stripe",
+      render: (r) =>
+        r.hosted_invoice_url ? (
+          <a href={r.hosted_invoice_url} target="_blank" rel="noreferrer">
+            <code>{r.provider_payment_id}</code>
+          </a>
+        ) : (
+          <code>{r.provider_payment_id}</code>
+        ),
+    },
   ];
   return (
     <div className="portal-page">

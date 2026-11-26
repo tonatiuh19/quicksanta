@@ -462,7 +462,8 @@ const REQUIRED_PROD_ENV: Array<{ name: string; why: string; fix: string }> = [
   { name: "SMTP_FROM", why: "sender address for every email (verified Resend domain)", fix: 'Add SMTP_FROM, e.g. "QuickSanta <hello@yourdomain.com>"' },
   { name: "STRIPE_SECRET_KEY", why: "Pro checkout ($8.90 per exchange) — server side", fix: "Stripe → Developers → API keys → add the secret key to Vercel Production" },
   { name: "VITE_STRIPE_PUBLISHABLE_KEY", why: "the secure card fields in the Pro checkout (needed at build time)", fix: "Stripe → Developers → API keys → add the publishable key to Vercel Production" },
-  { name: "STRIPE_WEBHOOK_SECRET", why: "verifying /api/webhooks/stripe (marks exchanges paid even if the browser closes)", fix: "Stripe → Webhooks → endpoint https://<domain>/api/webhooks/stripe (payment_intent.succeeded, payment_failed, canceled) → copy signing secret" },
+  { name: "STRIPE_PLATFORM_PRICE_ID", why: "the Pro subscription price ($8.90/month) used by /api/app/billing/subscribe", fix: "Stripe → Products → Pro → copy the monthly price id (price_…) to Vercel Production" },
+  { name: "STRIPE_WEBHOOK_SECRET", why: "verifying /api/webhooks/stripe (marks exchanges paid even if the browser closes)", fix: "Stripe → Webhooks → endpoint https://<domain>/api/webhooks/stripe (customer.subscription.created/updated/deleted, invoice.paid, invoice.payment_failed) → copy signing secret" },
   { name: "CRON_SECRET", why: "protects /api/cron/cleanup in production", fix: "Add CRON_SECRET (any long random string); Vercel sends it automatically to crons" },
   { name: "PUBLIC_APP_URL", why: "absolute links in emails + CSRF origin allowlist", fix: "Add PUBLIC_APP_URL=https://your-domain" },
 ];

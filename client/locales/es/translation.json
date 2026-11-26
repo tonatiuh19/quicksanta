@@ -68,7 +68,8 @@
     "pending_payment": "Pago pendiente",
     "pending": "Pendiente",
     "succeeded": "Pagado",
-    "refunded": "Reembolsado"
+    "refunded": "Reembolsado",
+    "canceling": "Termina pronto"
   },
   "services": {
     "secret_santa": {
@@ -201,13 +202,13 @@
       "pro": {
         "name": "Pro",
         "price": "$8.90",
-        "per": "por intercambio",
+        "per": "al mes · por espacio",
         "desc": "Para oficinas y grandes celebraciones.",
         "features": [
           "Todo lo de Gratis",
           "Hasta 100 personas por intercambio",
-          "Mejora cualquier intercambio en un clic",
-          "Pago seguro con tarjeta",
+          "Todos los intercambios de tu espacio",
+          "Cobro seguro con tarjeta, cancela cuando quieras",
           "Soporte prioritario"
         ],
         "cta": "Empezar con Pro"
@@ -229,7 +230,7 @@
     "faq": {
       "title": "¿Preguntas?",
       "q1": "¿De verdad es gratis?",
-      "a1": "Sí. Los intercambios de hasta 20 personas son gratis. Los grupos más grandes (hasta 100) pagan $8.90 una sola vez por intercambio con Pro.",
+      "a1": "Sí. Los intercambios de hasta 20 personas son gratis. Para grupos más grandes (hasta 100 personas), Pro cuesta $8.90 al mes por espacio y puedes cancelar cuando quieras.",
       "q2": "¿El organizador puede ver quién le tocó a quién?",
       "a2": "No. Las asignaciones son privadas: cada quien solo ve la suya. El organizador solo ve quién ya la reveló.",
       "q3": "¿Se necesita contraseña o app?",
@@ -278,7 +279,8 @@
     "profile": "Perfil",
     "sectionOverview": "General",
     "sectionOrganize": "Organizar",
-    "sectionSetup": "Ajustes"
+    "sectionSetup": "Ajustes",
+    "billing": "Plan y facturación"
   },
   "dashboard": {
     "hello": "Hola, {{name}}",
@@ -520,7 +522,9 @@
       "emails": "Correos (7d)",
       "failures": "{{n}} fallidos",
       "revenue": "Ingresos",
-      "revenue30": "{{amount}} últimos 30d · {{n}} Pro"
+      "revenue30": "{{amount}} últimos 30d · {{n}} Pro",
+      "mrr": "Ingreso mensual (MRR)",
+      "subs": "{{n}} Pro activos"
     },
     "tenants": {
       "sub": "Administra cada espacio: estado, plan y límites.",
@@ -536,7 +540,9 @@
         "plan": "Plan",
         "members": "Miembros",
         "events": "Intercambios",
-        "created": "Creado"
+        "created": "Creado",
+        "subscription": "Suscripción",
+        "renews": "Renueva"
       }
     },
     "users": {
@@ -590,13 +596,17 @@
       "default_max_participants": "Máx. de personas por intercambio por defecto",
       "free_max_participants": "Plan gratis: máx. personas por intercambio",
       "pro_max_participants": "Plan Pro: máx. personas por intercambio",
-      "pro_price_cents": "Precio Pro por intercambio (centavos, ej. 890 = $8.90)"
+      "pro_price_cents": "Precio Pro por intercambio (centavos, ej. 890 = $8.90)",
+      "subscription_grace_days": "Días de gracia tras un cobro fallido",
+      "save_offer_percent": "Oferta al cancelar (% de descuento el próximo mes)"
     },
     "payments": {
-      "sub": "Todos los pagos Pro, filtrados y ordenados en el servidor.",
+      "sub": "Todas las facturas y pagos Pro, filtrados y ordenados en el servidor.",
       "amount": "Monto",
       "payer": "Pagó",
-      "card": "Tarjeta"
+      "card": "Tarjeta",
+      "what": "Concepto",
+      "subscription": "Suscripción Pro"
     }
   },
   "errors": {
@@ -636,7 +646,12 @@
     "invalidTransition": "Ese cambio de estado no está permitido.",
     "alreadyPro": "Este intercambio ya es Pro.",
     "paymentMismatch": "Ese pago no corresponde a este intercambio.",
-    "paymentNotCompleted": "El pago no se completó."
+    "paymentNotCompleted": "El pago no se completó.",
+    "noSubscription": "Este espacio no tiene una suscripción activa.",
+    "offerUsed": "Esta oferta ya se usó.",
+    "confirmNameMismatch": "El nombre no coincide con tu espacio.",
+    "cardNotSaved": "No pudimos guardar esa tarjeta.",
+    "retryFailed": "Tarjeta guardada, pero el reintento falló. Prueba otra tarjeta."
   },
   "validation": {
     "invalid": "Revisa los campos.",
@@ -651,8 +666,8 @@
   },
   "checkout": {
     "kicker": "Intercambio Pro",
-    "heading": "Activa Pro para este intercambio",
-    "sub": "Ya son {{count}} personas. Paga una vez y abriremos el intercambio y enviaremos todas las invitaciones.",
+    "heading": "Activa Pro para tu espacio",
+    "sub": "Ya son {{count}} personas. Suscríbete a Pro y abriremos el intercambio y enviaremos todas las invitaciones.",
     "title": "Paga {{price}} de forma segura",
     "lead": "Pago único para “{{name}}”. Sin suscripción.",
     "cardNumber": "Número de tarjeta",
@@ -664,21 +679,120 @@
     "paid": "¡Pagado!",
     "trustEncrypted": "Cifrado por Stripe",
     "trustNeverStored": "Nunca vemos ni guardamos tu tarjeta",
-    "successTitle": "Pago recibido. ¡Pro activado! 🎉",
+    "successTitle": "¡Bienvenido a Pro! 🎉",
     "successToast": "Pro activado: invitaciones enviadas y espacio para más personas.",
     "later": "Pagar después (el intercambio queda cerrado hasta pagar)",
     "planLabel": "Plan",
     "upTo": "Hasta {{count}} personas",
     "needsPro": "{{count}} personas superan el límite gratis de {{max}}. Este intercambio será Pro.",
     "enterprise": "¿Más de {{max}} personas? Eso es Empresarial. Contáctanos y lo configuramos.",
-    "launchPay": "Lanzar y pagar {{price}}",
+    "launchPay": "Lanzar y suscribirme · {{price}}/mes",
     "pendingTitle": "Pago pendiente",
-    "pendingBody": "Paga {{price}} para abrir este intercambio y enviar las invitaciones.",
-    "payNow": "Pagar {{price}}",
+    "pendingBody": "Suscríbete a Pro ({{price}}/mes) para abrir este intercambio y enviar las invitaciones.",
+    "payNow": "Suscribirme · {{price}}/mes",
     "upgradeTitle": "{{used}}/{{max}} personas en el plan gratis",
-    "upgradeBody": "Mejora este intercambio a Pro para hasta {{count}} personas · {{price}} una vez.",
+    "upgradeBody": "Pro: hasta {{count}} personas en cada intercambio · {{price}}/mes.",
     "upgrade": "Mejorar a Pro",
-    "proActive": "Intercambio Pro · hasta {{max}} personas",
-    "modalTitle": "Mejorar a Pro"
+    "proActive": "Espacio Pro · hasta {{max}} personas",
+    "modalTitle": "Mejorar a Pro",
+    "subTitle": "Pro · {{price}}/mes",
+    "subLead": "Para el espacio “{{name}}”. Se renueva cada mes, cancela cuando quieras.",
+    "subscribe": "Suscribirme · {{price}}/mes",
+    "subFine": "Cobro mensual. Cancela cuando quieras desde Plan y facturación; Pro sigue activo hasta el fin del mes pagado."
+  },
+  "legal": {
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "and": "y",
+    "consentPrefix": "Al continuar aceptas nuestros"
+  },
+  "billing": {
+    "title": "Plan y facturación",
+    "sub": "Tu plan, método de pago y facturas.",
+    "currentPlan": "Plan actual",
+    "month": "mes",
+    "renewsOn": "Se renueva el {{date}} por {{price}}",
+    "endsOn": "Pro termina el {{date}}",
+    "largest": "Intercambio activo más grande",
+    "usageLine": "{{events}} intercambio(s) activo(s) en este espacio",
+    "upgrade": "Mejorar a Pro · {{price}}/mes",
+    "upgradeTitle": "Mejorar a Pro",
+    "pendingExchanges": "{{count}} intercambio(s) esperan Pro para abrirse.",
+    "paymentMethod": "Método de pago",
+    "noCard": "Aún no hay tarjeta registrada.",
+    "updateCard": "Actualizar método de pago",
+    "updateTitle": "Actualiza tu tarjeta",
+    "updateLead": "Se usará en las próximas renovaciones. Reemplaza tu tarjeta actual.",
+    "saveCard": "Guardar tarjeta",
+    "cardSaved": "¡Guardada!",
+    "cardSavedTitle": "Tarjeta actualizada ✓",
+    "invoices": "Facturas",
+    "noInvoices": "Aún no hay facturas.",
+    "inv": {
+      "date": "Fecha",
+      "number": "Factura",
+      "amount": "Monto",
+      "status": "Estado",
+      "view": "Ver factura",
+      "pdf": "Descargar PDF",
+      "st": {
+        "paid": "Pagada",
+        "open": "Pendiente",
+        "void": "Anulada",
+        "uncollectible": "Incobrable",
+        "draft": "Borrador"
+      }
+    },
+    "status": {
+      "active": "Activa",
+      "trialing": "Prueba",
+      "past_due": "Pago fallido",
+      "canceling": "Termina pronto",
+      "canceled": "Cancelada",
+      "incomplete": "Incompleta",
+      "incomplete_expired": "Expirada",
+      "unpaid": "Sin pagar",
+      "paused": "En pausa",
+      "none": "—"
+    },
+    "pastDueTitle": "Tu último pago no se pudo cobrar",
+    "pastDueBody": "Pro sigue activo {{days}} días más. Actualiza tu tarjeta y lo reintentaremos de inmediato.",
+    "fixPayment": "Actualizar tarjeta y reintentar",
+    "endsTitle": "Pro termina el {{date}}",
+    "endsBody": "¿Cambiaste de opinión? Reactívalo y todo sigue igual.",
+    "resume": "Reactivar Pro",
+    "manage": "Administrar plan",
+    "manageHint": "Más opciones de tu suscripción.",
+    "cancelLink": "Cancelar suscripción",
+    "subscribedToast": "¡Ya tienes Pro! Los intercambios pendientes están abiertos y las invitaciones van en camino.",
+    "cardToast": "Método de pago actualizado.",
+    "resumedToast": "Pro reactivado. ¡Gracias por quedarte!",
+    "offerToast": "Oferta aplicada: tu próximo mes tiene descuento. ¡Gracias por quedarte! 💛",
+    "cancelledToast": "Suscripción cancelada. Pro sigue activo hasta el fin del mes pagado.",
+    "cancel": {
+      "title": "Cancelar Pro",
+      "why": "¿Por qué te vas?",
+      "feedback": "¿Qué podríamos mejorar? (opcional)",
+      "keep": "Mantener Pro",
+      "noThanks": "No, gracias, continuar",
+      "reasons": {
+        "too_expensive": "Es muy caro",
+        "only_once": "Solo lo necesitaba una vez",
+        "missing_features": "Le faltan funciones",
+        "too_complex": "Es complicado",
+        "switching": "Me cambio a otra herramienta",
+        "other": "Otro"
+      },
+      "offerTitle": "Quédate y obtén {{percent}}% de descuento el próximo mes",
+      "offerBody": "Tu próxima renovación tendrá {{percent}}% de descuento sobre los {{price}} habituales. Todo sigue igual.",
+      "acceptOffer": "Quedarme con {{percent}}% de descuento",
+      "confirmTitle": "Antes de irte",
+      "lose1": "Pro sigue activo hasta el {{date}}; no se te volverá a cobrar.",
+      "lose2": "Después, los intercambios no podrán pasar de 20 personas.",
+      "lose3": "Tus intercambios, sorteos y listas de deseos se conservan.",
+      "typeName": "Escribe “{{name}}” para confirmar",
+      "typeLabel": "Nombre del espacio",
+      "confirm": "Cancelar suscripción"
+    }
   }
 }

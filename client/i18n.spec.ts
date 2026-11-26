@@ -5,7 +5,7 @@ import en from "./locales/en/translation.json";
 import es from "./locales/es/translation.json";
 
 function keys(o: any, p = ""): string[] {
-  return Object.entries(o).flatMap(([k, v]) => (v && typeof v === "object" ? keys(v, `${p}${k}.`) : [`${p}${k}`]));
+  return Object.entries(o).flatMap(([k, v]) => (v && typeof v === "object" && !Array.isArray(v) ? keys(v, `${p}${k}.`) : [`${p}${k}`]));
 }
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {

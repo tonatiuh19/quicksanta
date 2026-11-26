@@ -25,6 +25,7 @@ import { z } from "zod";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type {
   AdminEventRow,
+  BillingOverview,
   AdminTenantRow,
   AdminUserRow,
   AuditRow,
@@ -716,73 +717,225 @@ async function mintSession(req: Request, res: Response, userId: number, activeTe
 
 
 // ════════════════════════════════════════════════════════════════════════════
-// 5b. Pricing + Stripe (Free ≤ free_max, Pro paid per exchange, Enterprise = tenant plan)
+// 5b. Pricing + Stripe subscriptions (Free ≤ free_max · Pro = $8.90/month per workspace · Enterprise = tenant plan)
 // ════════════════════════════════════════════════════════════════════════════
 
 export async function pricingInfo(): Promise<PricingInfo> {
-  const [freeMax, proMax, cents, currency] = await Promise.all([
+  const [freeMax, proMax, cents, currency, grace, offer] = await Promise.all([
     readSetting("free_max_participants", "20"),
     readSetting("pro_max_participants", "100"),
     readSetting("pro_price_cents", "890"),
     readSetting("pro_currency", "usd"),
+    readSetting("subscription_grace_days", "3"),
+    readSetting("save_offer_percent", "50"),
   ]);
   return {
     free_max_participants: Number(freeMax) || 20,
     pro_max_participants: Number(proMax) || 100,
     pro_price_cents: Number(cents) || 890,
     pro_currency: String(currency || "usd").toLowerCase(),
+    pro_interval: "month",
+    grace_days: Number(grace) || 3,
+    save_offer_percent: Math.min(100, Math.max(0, Number(offer) || 0)),
   };
 }
 
-/** Effective people limit for one exchange. Enterprise tenants use their own (Command Center) limit. */
-export function participantLimit(p: PricingInfo, eventPlan: EventPlan, tenantPlan: string | null | undefined, tenantMax: number): number {
-  if (tenantPlan === "enterprise") return Math.max(tenantMax || 0, p.pro_max_participants);
-  return eventPlan === "pro" ? p.pro_max_participants : p.free_max_participants;
+type TenantBillingRow = { plan?: string | null; subscription_status?: string | null; current_period_end?: string | null; past_due_since?: string | null };
+
+/**
+ * The plan that applies right now. A Pro workspace whose renewal failed (past_due) keeps Pro for
+ * `grace_days` after the FIRST failure (`past_due_since`; Stripe already advanced current_period_end),
+ * then drops to Free (exchanges keep running; growth is locked).
+ */
+export function effectiveTenantPlan(t: TenantBillingRow, graceDays: number, now = Date.now()): "free" | "pro" | "enterprise" {
+  if (t.plan === "enterprise") return "enterprise";
+  if (t.plan !== "pro") return "free";
+  if (t.subscription_status === "past_due") {
+    const since = t.past_due_since ?? t.current_period_end;
+    if (!since) return "pro";
+    const end = Date.parse(String(since).replace(" ", "T") + (String(since).endsWith("Z") ? "" : "Z"));
+    if (Number.isFinite(end) && now > end + graceDays * 86_400_000) return "free";
+  }
+  return "pro";
 }
 
-/** Minimal surface of the Stripe SDK we use (swappable in tests). */
-export interface PaymentsApi {
-  createIntent(o: { amount: number; currency: string; metadata: Record<string, string>; description: string; email: string; idempotencyKey: string }): Promise<{ id: string; client_secret: string | null; status: string }>;
-  retrieveIntent(id: string): Promise<{ id: string; status: string; amount: number; currency: string; metadata: Record<string, string>; card_brand: string | null; card_last4: string | null; client_secret?: string | null }>;
+/** Effective people limit for one exchange. Legacy per-exchange Pro purchases are still honored. */
+export function participantLimit(p: PricingInfo, eventPlan: EventPlan, tenantPlan: string | null | undefined, tenantMax: number): number {
+  if (tenantPlan === "enterprise") return Math.max(tenantMax || 0, p.pro_max_participants);
+  return tenantPlan === "pro" || eventPlan === "pro" ? p.pro_max_participants : p.free_max_participants;
+}
+
+/** Subscription statuses that grant Pro (past_due is still Pro during the grace window). */
+export function planFromSubscriptionStatus(status: string): "pro" | "free" {
+  return ["active", "trialing", "past_due"].includes(status) ? "pro" : "free";
+}
+
+export type CardInfo = { brand: string | null; last4: string | null; exp: string | null };
+export type SubscriptionInfo = {
+  id: string;
+  status: string;
+  customer: string;
+  current_period_end: number | null;
+  cancel_at_period_end: boolean;
+  client_secret: string | null;
+  latest_invoice_id: string | null;
+  card: CardInfo | null;
+  discount_percent: number | null;
+  metadata: Record<string, string>;
+};
+export type InvoiceInfo = {
+  id: string;
+  number: string | null;
+  status: string | null;
+  amount_cents: number;
+  currency: string;
+  created: number;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+  subscription: string | null;
+  customer: string;
+  card: CardInfo | null;
+};
+
+/** The part of Stripe we use (swappable in tests via __test.setBillingApi). */
+export interface BillingApi {
+  createCustomer(o: { email: string; name: string; tenantId: number }): Promise<string>;
+  createSubscription(o: { customer: string; price: string; tenantId: number; idempotencyKey: string }): Promise<SubscriptionInfo>;
+  getSubscription(id: string): Promise<SubscriptionInfo>;
+  updateSubscription(id: string, o: { cancel_at_period_end?: boolean; coupon?: string; default_payment_method?: string; cancel_reason?: string }): Promise<SubscriptionInfo>;
+  /** Ends the subscription immediately and voids its open invoice (no more retries). */
+  cancelNow(id: string, reason?: string): Promise<SubscriptionInfo>;
+  createSetupIntent(customer: string): Promise<{ client_secret: string }>;
+  setDefaultPaymentMethod(customer: string, paymentMethod: string): Promise<CardInfo>;
+  listInvoices(customer: string): Promise<InvoiceInfo[]>;
+  getInvoice(id: string): Promise<InvoiceInfo>;
+  payInvoice(id: string): Promise<string>;
+  ensureCoupon(percent: number): Promise<string>;
   constructWebhookEvent(raw: Buffer, signature: string, secret: string): { type: string; data: { object: any } };
 }
 
-let paymentsOverride: PaymentsApi | null = null;
+let billingOverride: BillingApi | null = null;
 let stripeClient: Stripe | null = null;
-function paymentsApi(): PaymentsApi {
-  if (paymentsOverride) return paymentsOverride;
+
+function cardOf(pm: any): CardInfo | null {
+  const c = pm && typeof pm === "object" ? pm.card : null;
+  if (!c) return null;
+  return { brand: c.brand ?? null, last4: c.last4 ?? null, exp: c.exp_month && c.exp_year ? `${String(c.exp_month).padStart(2, "0")}/${c.exp_year}` : null };
+}
+
+function normalizeSubscription(s: any): SubscriptionInfo {
+  const item = s.items?.data?.[0];
+  const inv = s.latest_invoice && typeof s.latest_invoice === "object" ? s.latest_invoice : null;
+  const secret = inv?.confirmation_secret?.client_secret ?? inv?.payment_intent?.client_secret ?? null;
+  const discount = Array.isArray(s.discounts) ? s.discounts[0] : s.discount;
+  return {
+    id: s.id,
+    status: s.status,
+    customer: typeof s.customer === "string" ? s.customer : s.customer?.id,
+    current_period_end: Number(item?.current_period_end ?? s.current_period_end ?? 0) || null,
+    cancel_at_period_end: Boolean(s.cancel_at_period_end),
+    client_secret: secret,
+    latest_invoice_id: inv?.id ?? (typeof s.latest_invoice === "string" ? s.latest_invoice : null),
+    card: cardOf(s.default_payment_method),
+    discount_percent: discount && typeof discount === "object" ? Number(discount.coupon?.percent_off ?? discount.source?.coupon?.percent_off ?? 0) || null : null,
+    metadata: (s.metadata ?? {}) as Record<string, string>,
+  };
+}
+
+function normalizeInvoice(i: any): InvoiceInfo {
+  return {
+    id: i.id,
+    number: i.number ?? null,
+    status: i.status ?? null,
+    amount_cents: Number(i.status === "paid" ? i.amount_paid : i.amount_due) || 0,
+    currency: String(i.currency || "usd"),
+    created: Number(i.created) || 0,
+    hosted_invoice_url: i.hosted_invoice_url ?? null,
+    invoice_pdf: i.invoice_pdf ?? null,
+    subscription: typeof i.subscription === "string" ? i.subscription : i.subscription?.id ?? i.parent?.subscription_details?.subscription ?? null,
+    customer: typeof i.customer === "string" ? i.customer : i.customer?.id,
+    card: null,
+  };
+}
+
+function billingApi(): BillingApi {
+  if (billingOverride) return billingOverride;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || IS_TEST) throw new HttpError(503, "errors.paymentsUnavailable");
   stripeClient ??= new Stripe(key);
   const st = stripeClient;
+  const SUB_EXPAND = ["latest_invoice.confirmation_secret", "default_payment_method", "discounts.source.coupon"];
   return {
-    async createIntent(o) {
-      const pi = await st.paymentIntents.create(
+    async createCustomer(o) {
+      const c = await st.customers.create({ email: o.email, name: o.name, metadata: { tenant_id: String(o.tenantId) } }, { idempotencyKey: `qs-cus-${o.tenantId}` });
+      return c.id;
+    },
+    async createSubscription(o) {
+      const s = await st.subscriptions.create(
         {
-          amount: o.amount,
-          currency: o.currency,
-          metadata: o.metadata,
-          description: o.description,
-          receipt_email: o.email,
-          automatic_payment_methods: { enabled: true, allow_redirects: "never" },
+          customer: o.customer,
+          items: [{ price: o.price }],
+          payment_behavior: "default_incomplete",
+          payment_settings: { save_default_payment_method: "on_subscription", payment_method_types: ["card"] },
+          metadata: { tenant_id: String(o.tenantId) },
+          expand: SUB_EXPAND,
         },
         { idempotencyKey: o.idempotencyKey },
       );
-      return { id: pi.id, client_secret: pi.client_secret, status: pi.status };
+      return normalizeSubscription(s);
     },
-    async retrieveIntent(id) {
-      const pi = await st.paymentIntents.retrieve(id, { expand: ["latest_charge"] });
-      const charge: any = pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
-      return {
-        id: pi.id,
-        status: pi.status,
-        amount: pi.amount,
-        currency: pi.currency,
-        metadata: (pi.metadata ?? {}) as Record<string, string>,
-        card_brand: charge?.payment_method_details?.card?.brand ?? null,
-        card_last4: charge?.payment_method_details?.card?.last4 ?? null,
-        client_secret: pi.client_secret,
-      };
+    async getSubscription(id) {
+      return normalizeSubscription(await st.subscriptions.retrieve(id, { expand: SUB_EXPAND }));
+    },
+    async updateSubscription(id, o) {
+      const params: any = { expand: SUB_EXPAND };
+      if (o.cancel_at_period_end !== undefined) params.cancel_at_period_end = o.cancel_at_period_end;
+      if (o.cancel_reason) params.cancellation_details = { feedback: o.cancel_reason };
+      if (o.coupon) params.discounts = [{ coupon: o.coupon }];
+      if (o.default_payment_method) params.default_payment_method = o.default_payment_method;
+      return normalizeSubscription(await st.subscriptions.update(id, params));
+    },
+    async cancelNow(id, reason) {
+      const before = await st.subscriptions.retrieve(id);
+      const s = await st.subscriptions.cancel(id, { invoice_now: false, prorate: false, ...(reason ? { cancellation_details: { feedback: reason as any } } : {}) });
+      const invId = typeof before.latest_invoice === "string" ? before.latest_invoice : before.latest_invoice?.id;
+      if (invId) {
+        const inv = await st.invoices.retrieve(invId);
+        if (inv.status === "open") await st.invoices.voidInvoice(invId).catch(() => undefined);
+      }
+      return normalizeSubscription(await st.subscriptions.retrieve(s.id, { expand: SUB_EXPAND }));
+    },
+    async createSetupIntent(customer) {
+      const si = await st.setupIntents.create({ customer, usage: "off_session", automatic_payment_methods: { enabled: true, allow_redirects: "never" } });
+      return { client_secret: si.client_secret! };
+    },
+    async setDefaultPaymentMethod(customer, paymentMethod) {
+      const pm = await st.paymentMethods.retrieve(paymentMethod);
+      if (pm.customer && pm.customer !== customer) throw new HttpError(400, "errors.paymentMismatch");
+      if (!pm.customer) await st.paymentMethods.attach(paymentMethod, { customer });
+      await st.customers.update(customer, { invoice_settings: { default_payment_method: paymentMethod } });
+      return cardOf(pm) ?? { brand: null, last4: null, exp: null };
+    },
+    async listInvoices(customer) {
+      const list = await st.invoices.list({ customer, limit: 24 });
+      return list.data.map(normalizeInvoice);
+    },
+    async getInvoice(id) {
+      return normalizeInvoice(await st.invoices.retrieve(id));
+    },
+    async payInvoice(id) {
+      const inv = await st.invoices.pay(id);
+      return inv.status ?? "open";
+    },
+    async ensureCoupon(percent) {
+      const id = `qs-save-${percent}`;
+      try {
+        await st.coupons.retrieve(id);
+      } catch (e: any) {
+        if (e?.code !== "resource_missing") throw e;
+        await st.coupons.create({ id, percent_off: percent, duration: "once", name: `QuickSanta stay offer ${percent}%` });
+      }
+      return id;
     },
     constructWebhookEvent(raw, signature, secret) {
       return st.webhooks.constructEvent(raw, signature, secret) as any;
@@ -790,47 +943,73 @@ function paymentsApi(): PaymentsApi {
   };
 }
 
-/**
- * Idempotent: marks the exchange Pro once its payment succeeded, opens a pending exchange and
- * sends the invitations that were waiting for payment. Safe to call from confirm + webhook.
- */
-async function finalizePayment(req: Request | null, intent: Awaited<ReturnType<PaymentsApi["retrieveIntent"]>>): Promise<{ eventId: number; tenantId: number } | null> {
-  const eventId = Number(intent.metadata?.event_id);
-  const tenantId = Number(intent.metadata?.tenant_id);
-  if (!eventId || !tenantId) return null;
-  if (intent.status !== "succeeded") {
-    await db.exec("UPDATE payments SET status = ? WHERE provider_payment_id = ? AND status = 'pending'", [intent.status === "canceled" ? "failed" : "pending", intent.id]);
-    return null;
-  }
-  const pricing = await pricingInfo();
-  if (intent.amount < pricing.pro_price_cents || intent.currency.toLowerCase() !== pricing.pro_currency) return null;
-  const opened = await db.tx(async (tx) => {
-    await tx.exec("UPDATE payments SET status = 'succeeded', card_brand = ?, card_last4 = ? WHERE provider_payment_id = ? AND tenant_id = ?", [intent.card_brand, intent.card_last4, intent.id, tenantId]);
-    // Only the first finalize flips the event (paid_at IS NULL guard).
-    const r = await tx.exec(
-      "UPDATE events SET plan = 'pro', paid_at = UTC_TIMESTAMP(), status = IF(status = 'pending_payment', 'open', status) WHERE id = ? AND tenant_id = ? AND paid_at IS NULL",
-      [eventId, tenantId],
-    );
-    return r.affectedRows === 1;
-  });
-  if (!opened) return { eventId, tenantId };
-  const ev = (await db.query("SELECT e.name, e.exchange_date, e.budget_min, e.budget_max, e.currency, e.invites_pending, et.name_en, et.name_es, u.full_name AS organizer FROM events e JOIN event_types et ON et.id = e.event_type_id LEFT JOIN users u ON u.id = e.created_by WHERE e.id = ?", [eventId]))[0];
-  if (ev && toBool(ev.invites_pending) && req) {
-    const people = await db.query("SELECT id, email FROM participants WHERE event_id = ? AND tenant_id = ? AND status = 'invited' AND invite_token_hash IS NULL", [eventId, tenantId]);
-    for (const p of people) {
-      await sendInvite(req, db, {
+function priceId(): string {
+  const id = process.env.STRIPE_PLATFORM_PRICE_ID;
+  if (!id && !billingOverride) throw new HttpError(503, "errors.paymentsUnavailable");
+  return id || "price_test";
+}
+
+const toSqlDate = (unix: number | null) => (unix ? new Date(unix * 1000).toISOString().slice(0, 19).replace("T", " ") : null);
+
+/** Opens exchanges that were waiting for Pro and sends their queued invitations (idempotent). */
+async function openPendingExchanges(req: Request | null, tenantId: number, lang: Lang) {
+  const pending = await db.query(
+    `SELECT e.id, e.name, e.exchange_date, e.budget_min, e.budget_max, e.currency, e.invites_pending, et.name_en, et.name_es, u.full_name AS organizer
+       FROM events e JOIN event_types et ON et.id = e.event_type_id LEFT JOIN users u ON u.id = e.created_by
+      WHERE e.tenant_id = ? AND e.status = 'pending_payment'`,
+    [tenantId],
+  );
+  for (const ev of pending) {
+    const r = await db.exec("UPDATE events SET status = 'open' WHERE id = ? AND tenant_id = ? AND status = 'pending_payment'", [ev.id, tenantId]);
+    if (r.affectedRows !== 1 || !toBool(ev.invites_pending) || !req) continue;
+    const people = await db.query("SELECT id, email FROM participants WHERE event_id = ? AND tenant_id = ? AND status = 'invited' AND invite_token_hash IS NULL", [ev.id, tenantId]);
+    await inBatches(people, 8, (p) =>
+      sendInvite(req, db, {
         tenantId,
         participantId: Number(p.id),
         email: p.email,
         organizer: ev.organizer || "QuickSanta",
         event: { name: ev.name, exchange_date: ev.exchange_date, budget_min: toNum(ev.budget_min), budget_max: toNum(ev.budget_max), currency: ev.currency },
-        typeName: reqLang(req) === "es" ? ev.name_es : ev.name_en,
-      });
-    }
-    await db.exec("UPDATE events SET invites_pending = 0 WHERE id = ?", [eventId]);
+        typeName: lang === "es" ? ev.name_es : ev.name_en,
+        lang,
+      }),
+    );
+    await db.exec("UPDATE events SET invites_pending = 0 WHERE id = ?", [ev.id]);
   }
-  await audit(req, "event.paid", "event", eventId, { tenantId, meta: { amount: intent.amount, currency: intent.currency, intent: intent.id } });
-  return { eventId, tenantId };
+}
+
+/** Mirror a Stripe subscription onto its workspace (single source of truth = Stripe). Idempotent. */
+async function syncTenantSubscription(req: Request | null, sub: SubscriptionInfo): Promise<{ tenantId: number; changed: boolean } | null> {
+  const rows = await db.query("SELECT id, plan, locale, stripe_subscription_id, subscription_status, past_due_since FROM tenants WHERE stripe_customer_id = ? LIMIT 1", [sub.customer]);
+  const t = rows[0];
+  if (!t) return null;
+  const tenantId = Number(t.id);
+  // Ignore stale events for an older subscription of the same customer.
+  if (t.stripe_subscription_id && t.stripe_subscription_id !== sub.id && !["active", "trialing", "past_due"].includes(sub.status)) return { tenantId, changed: false };
+  const plan = t.plan === "enterprise" ? "enterprise" : planFromSubscriptionStatus(sub.status);
+  const pastDueSince = sub.status === "past_due" ? t.past_due_since ?? new Date().toISOString().slice(0, 19).replace("T", " ") : null;
+  await db.exec(
+    `UPDATE tenants SET stripe_subscription_id = ?, subscription_status = ?, current_period_end = ?, past_due_since = ?, cancel_at_period_end = ?, plan = ?,
+            card_brand = COALESCE(?, card_brand), card_last4 = COALESCE(?, card_last4), card_exp = COALESCE(?, card_exp)
+      WHERE id = ?`,
+    [sub.id, sub.status, toSqlDate(sub.current_period_end), pastDueSince, sub.cancel_at_period_end ? 1 : 0, plan, sub.card?.brand ?? null, sub.card?.last4 ?? null, sub.card?.exp ?? null, tenantId],
+  );
+  const grace = (await pricingInfo()).grace_days;
+  const effective = effectiveTenantPlan({ plan, subscription_status: sub.status, past_due_since: pastDueSince }, grace);
+  // Waiting exchanges open only while Pro actually applies (never for an expired grace period).
+  if (effective !== "free") await openPendingExchanges(req, tenantId, t.locale === "es" ? "es" : "en");
+  return { tenantId, changed: t.subscription_status !== sub.status };
+}
+
+async function recordInvoice(inv: InvoiceInfo, status: "succeeded" | "failed") {
+  const t = (await db.query("SELECT id FROM tenants WHERE stripe_customer_id = ? LIMIT 1", [inv.customer]))[0];
+  if (!t) return;
+  await db.exec(
+    `INSERT INTO payments (tenant_id, event_id, provider, kind, provider_payment_id, amount_cents, currency, status, hosted_invoice_url)
+     VALUES (?, NULL, 'stripe', 'invoice', ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE status = IF(status = 'succeeded', status, VALUES(status)), amount_cents = VALUES(amount_cents), hosted_invoice_url = VALUES(hosted_invoice_url)`,
+    [t.id, inv.id, inv.amount_cents, inv.currency.toUpperCase(), status, inv.hosted_invoice_url],
+  );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -911,11 +1090,11 @@ function budgetLabel(min: number | null, max: number | null, currency: string): 
 async function sendInvite(
   req: Request,
   dbx: Db,
-  o: { tenantId: number; participantId: number; email: string; organizer: string; event: { name: string; exchange_date: string | null; budget_min: number | null; budget_max: number | null; currency: string }; typeName: string },
+  o: { tenantId: number; participantId: number; email: string; organizer: string; event: { name: string; exchange_date: string | null; budget_min: number | null; budget_max: number | null; currency: string }; typeName: string; lang?: Lang },
 ) {
   const token = crypto.randomBytes(24).toString("base64url");
   await dbx.exec("UPDATE participants SET invite_token_hash = ?, invited_at = UTC_TIMESTAMP() WHERE id = ? AND tenant_id = ?", [sha256(token), o.participantId, o.tenantId]);
-  const tpl = tplInvite(reqLang(req), {
+  const tpl = tplInvite(o.lang ?? reqLang(req), {
     organizer: o.organizer,
     eventName: o.event.name,
     typeName: o.typeName,
@@ -929,7 +1108,7 @@ async function sendInvite(
 
 async function loadTenantEvent(tenantId: number, eventId: number) {
   const rows = await db.query(
-    `SELECT ${EVENT_SELECT}, et.uses_draw, t.max_participants_per_event, t.plan AS tenant_plan FROM events e
+    `SELECT ${EVENT_SELECT}, et.uses_draw, t.max_participants_per_event, t.plan AS tenant_plan_raw, t.subscription_status, t.current_period_end, t.past_due_since FROM events e
        JOIN event_types et ON et.id = e.event_type_id JOIN tenants t ON t.id = e.tenant_id
       WHERE e.id = ? AND e.tenant_id = ? LIMIT 1`,
     [eventId, tenantId],
@@ -937,6 +1116,7 @@ async function loadTenantEvent(tenantId: number, eventId: number) {
   if (!rows[0]) throw new HttpError(404, "errors.notFound");
   const event = mapEvent(rows[0]);
   const pricing = await pricingInfo();
+  rows[0].tenant_plan = effectiveTenantPlan({ plan: rows[0].tenant_plan_raw, subscription_status: rows[0].subscription_status, current_period_end: rows[0].current_period_end, past_due_since: rows[0].past_due_since }, pricing.grace_days);
   const maxParticipants = participantLimit(pricing, event.plan, rows[0].tenant_plan, Number(rows[0].max_participants_per_event));
   return { row: rows[0], event, maxParticipants, pricing };
 }
@@ -951,7 +1131,7 @@ function registerPublicRoutes(app: express.Express) {
     }),
   );
 
-  /** Stripe webhook: payment_intent.succeeded / payment_failed (signature verified on the raw body). */
+  /** Stripe webhook: subscription lifecycle + invoices (signature verified on the raw body). */
   app.post(
     "/api/webhooks/stripe",
     route(async (req, res) => {
@@ -961,14 +1141,18 @@ function registerPublicRoutes(app: express.Express) {
       if (!secret || !sig || !raw) throw new HttpError(400, "errors.badSignature");
       let evt: { type: string; data: { object: any } };
       try {
-        evt = paymentsApi().constructWebhookEvent(raw, sig, secret);
+        evt = billingApi().constructWebhookEvent(raw, sig, secret);
       } catch {
         throw new HttpError(400, "errors.badSignature");
       }
-      if (evt.type === "payment_intent.succeeded" || evt.type === "payment_intent.payment_failed" || evt.type === "payment_intent.canceled") {
-        const intent = await paymentsApi().retrieveIntent(String(evt.data.object?.id));
-        if (evt.type === "payment_intent.succeeded") await finalizePayment(req, intent);
-        else await db.exec("UPDATE payments SET status = 'failed' WHERE provider_payment_id = ? AND status = 'pending'", [intent.id]);
+      const obj = evt.data.object ?? {};
+      if (evt.type.startsWith("customer.subscription.")) {
+        // Re-read from Stripe: event payloads can arrive out of order.
+        await syncTenantSubscription(req, await billingApi().getSubscription(String(obj.id)));
+      } else if (evt.type === "invoice.paid" || evt.type === "invoice.payment_failed") {
+        const inv = await billingApi().getInvoice(String(obj.id));
+        await recordInvoice(inv, evt.type === "invoice.paid" ? "succeeded" : "failed");
+        if (inv.subscription) await syncTenantSubscription(req, await billingApi().getSubscription(inv.subscription));
       }
       res.json({ received: true });
     }),
@@ -1182,9 +1366,9 @@ function registerWizardRoutes(app: express.Express) {
           tenantId = t.insertId;
           await tx.exec("INSERT INTO tenant_members (tenant_id, user_id, role) VALUES (?, ?, 'organizer')", [tenantId, u.id]);
         } else {
-          const lim = await tx.query("SELECT plan, max_events, max_participants_per_event, (SELECT COUNT(*) FROM events WHERE tenant_id = ? AND status NOT IN ('cancelled','completed')) AS active FROM tenants WHERE id = ?", [tenantId, tenantId]);
+          const lim = await tx.query("SELECT plan, subscription_status, current_period_end, past_due_since, max_events, max_participants_per_event, (SELECT COUNT(*) FROM events WHERE tenant_id = ? AND status NOT IN ('cancelled','completed')) AS active FROM tenants WHERE id = ?", [tenantId, tenantId]);
           if (lim[0] && Number(lim[0].active) >= Number(lim[0].max_events)) throw new HttpError(402, "errors.eventLimit");
-          tenantPlan = lim[0]?.plan ?? "free";
+          tenantPlan = lim[0] ? effectiveTenantPlan(lim[0], pricing.grace_days) : "free";
           tenantMax = Number(lim[0]?.max_participants_per_event ?? tenantMax);
         }
         const maxParticipants = participantLimit(pricing, plan, tenantPlan, tenantMax);
@@ -1193,14 +1377,14 @@ function registerWizardRoutes(app: express.Express) {
           const needs = plan === "free" && people.length <= participantLimit(pricing, "pro", tenantPlan, tenantMax) ? "errors.needsPro" : "errors.participantLimit";
           throw new HttpError(402, needs, { max: maxParticipants, free_max: pricing.free_max_participants, pro_max: pricing.pro_max_participants });
         }
-        // Pro on an Enterprise tenant is already covered: no payment needed.
-        const payNow = plan === "pro" && tenantPlan !== "enterprise";
+        // Pro needs an active workspace subscription; Pro/Enterprise workspaces are already covered.
+        const payNow = plan === "pro" && tenantPlan === "free";
 
         const publicId = newPublicId();
         const ev = await tx.exec(
           `INSERT INTO events (public_id, tenant_id, event_type_id, name, description, status, plan, invites_pending, budget_min, budget_max, currency, exchange_date, rsvp_deadline, location, allow_wishlists, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [publicId, tenantId, type.id, input.name, input.description || null, payNow ? "pending_payment" : "open", payNow ? "free" : plan, payNow && input.sendInvites ? 1 : 0, input.budgetMin ?? null, input.budgetMax ?? null, input.currency, input.exchangeDate ?? null, input.rsvpDeadline ?? null, input.location ?? null, input.allowWishlists ? 1 : 0, u.id],
+          [publicId, tenantId, type.id, input.name, input.description || null, payNow ? "pending_payment" : "open", "free", payNow && input.sendInvites ? 1 : 0, input.budgetMin ?? null, input.budgetMax ?? null, input.currency, input.exchangeDate ?? null, input.rsvpDeadline ?? null, input.location ?? null, input.allowWishlists ? 1 : 0, u.id],
         );
         const eventId = ev.insertId;
         const ids: number[] = [];
@@ -1656,67 +1840,220 @@ function registerTenantRoutes(app: express.Express) {
   );
 
 
-  // ── Pro checkout (Stripe PaymentIntent; card fields are Stripe Elements on the client) ──
+  // ── Billing: Pro subscription per workspace (organizers only) ──
+  const loadBillingTenant = async (tenantId: number) => {
+    const t = (await db.query(
+      `SELECT id, name, plan, locale, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, past_due_since, cancel_at_period_end,
+              cancel_reason, save_offer_used_at, card_brand, card_last4, card_exp, max_participants_per_event
+         FROM tenants WHERE id = ?`,
+      [tenantId],
+    ))[0];
+    if (!t) throw new HttpError(404, "errors.notFound");
+    return t;
+  };
+
+  app.get(
+    "/api/app/billing",
+    requireTenant("members.manage"),
+    route(async (_req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const t = await loadBillingTenant(tenant_id);
+      const pricing = await pricingInfo();
+      const usage = (await db.query(
+        `SELECT COUNT(*) AS events, COALESCE(MAX((SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.status IN ('invited','joined'))), 0) AS largest,
+                SUM(e.status = 'pending_payment') AS pending
+           FROM events e WHERE e.tenant_id = ? AND e.status NOT IN ('cancelled','completed')`,
+        [tenant_id],
+      ))[0] ?? {};
+      let invoices: InvoiceInfo[] = [];
+      if (t.stripe_customer_id) {
+        try {
+          invoices = (await billingApi().listInvoices(t.stripe_customer_id)).filter((i) => i.status !== "draft");
+        } catch (e) {
+          if (!(e instanceof HttpError)) throw e;
+        }
+      }
+      const effective = effectiveTenantPlan(t, pricing.grace_days);
+      const out: BillingOverview = {
+        plan: effective,
+        status: t.subscription_status,
+        current_period_end: t.current_period_end ?? null,
+        cancel_at_period_end: toBool(t.cancel_at_period_end),
+        save_offer_available: !t.save_offer_used_at && pricing.save_offer_percent > 0 && ["active", "trialing"].includes(t.subscription_status),
+        card: t.card_last4 ? { brand: t.card_brand, last4: t.card_last4, exp: t.card_exp } : null,
+        pricing,
+        usage: { events: Number(usage.events ?? 0), largest: Number(usage.largest ?? 0), pending: Number(usage.pending ?? 0), limit: participantLimit(pricing, "free", effective, Number(t.max_participants_per_event)) },
+        invoices: invoices.map((i) => ({ id: i.id, number: i.number, status: i.status, amount_cents: i.amount_cents, currency: i.currency, created: i.created, hosted_invoice_url: i.hosted_invoice_url, invoice_pdf: i.invoice_pdf })),
+      };
+      res.json({ ok: true, ...out });
+    }),
+  );
+
+  /** Start (or resume an unfinished) Pro subscription; returns the client secret of its first invoice. */
   app.post(
-    "/api/app/events/:id/checkout",
+    "/api/app/billing/subscribe",
     writeLimiter,
-    requireTenant("events.manage"),
+    requireTenant("members.manage"),
     route(async (req, res) => {
       const { tenant_id } = tenantCtx(res);
       const u = authed(res);
-      const eventId = parseId(req.params.id);
-      const { event, row, pricing } = await loadTenantEvent(tenant_id, eventId);
-      if (event.plan === "pro" || event.paid_at) throw new HttpError(409, "errors.alreadyPro");
-      if (row.tenant_plan === "enterprise") throw new HttpError(409, "errors.alreadyPro");
-      if (event.status === "cancelled" || event.status === "completed") throw new HttpError(409, "errors.eventClosed");
-      const api = paymentsApi();
-      // Reuse an open intent for this exchange so retries never double charge.
-      const existing = await db.query("SELECT provider_payment_id FROM payments WHERE event_id = ? AND tenant_id = ? AND status = 'pending' AND amount_cents = ? ORDER BY id DESC LIMIT 1", [eventId, tenant_id, pricing.pro_price_cents]);
-      let intentId: string | null = null;
-      let clientSecret: string | null = null;
-      if (existing[0]) {
-        const prev = await api.retrieveIntent(String(existing[0].provider_payment_id));
-        if (prev.status === "succeeded") {
-          await finalizePayment(req, prev);
+      const t = await loadBillingTenant(tenant_id);
+      if (t.plan === "enterprise") throw new HttpError(409, "errors.alreadyPro");
+      const api = billingApi();
+      const price = priceId();
+      let customer = t.stripe_customer_id as string | null;
+      if (!customer) {
+        customer = await api.createCustomer({ email: u.email, name: t.name, tenantId: tenant_id });
+        await db.exec("UPDATE tenants SET stripe_customer_id = ? WHERE id = ? AND stripe_customer_id IS NULL", [customer, tenant_id]);
+      }
+      if (t.stripe_subscription_id) {
+        const cur = await api.getSubscription(t.stripe_subscription_id);
+        if (["active", "trialing", "past_due"].includes(cur.status)) {
+          await syncTenantSubscription(req, cur);
           throw new HttpError(409, "errors.alreadyPro");
         }
-        if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(prev.status) && prev.client_secret) {
-          intentId = prev.id;
-          clientSecret = prev.client_secret;
+        if (cur.status === "incomplete" && cur.client_secret) {
+          return void res.json({ ok: true, client_secret: cur.client_secret, subscription_id: cur.id });
         }
       }
-      if (!intentId) {
-        const pi = await api.createIntent({
-          amount: pricing.pro_price_cents,
-          currency: pricing.pro_currency,
-          metadata: { tenant_id: String(tenant_id), event_id: String(eventId), user_id: String(u.id) },
-          description: `QuickSanta Pro · ${event.name}`.slice(0, 200),
-          email: u.email,
-          idempotencyKey: `qs-pro-${eventId}-${crypto.randomBytes(8).toString("hex")}`,
-        });
-        intentId = pi.id;
-        clientSecret = pi.client_secret;
-        await db.exec("INSERT INTO payments (tenant_id, event_id, user_id, provider_payment_id, amount_cents, currency) VALUES (?, ?, ?, ?, ?, ?)", [tenant_id, eventId, u.id, pi.id, pricing.pro_price_cents, pricing.pro_currency.toUpperCase()]);
-      }
-      res.json({ ok: true, client_secret: clientSecret, payment_intent_id: intentId, amount_cents: pricing.pro_price_cents, currency: pricing.pro_currency });
+      // Same key for concurrent clicks (Stripe returns the same subscription); a new attempt after the previous one ended gets a new key.
+      const sub = await api.createSubscription({ customer, price, tenantId: tenant_id, idempotencyKey: `qs-sub-${tenant_id}-${t.stripe_subscription_id ?? "first"}` });
+      await db.exec("UPDATE tenants SET stripe_subscription_id = ?, subscription_status = ? WHERE id = ?", [sub.id, sub.status, tenant_id]);
+      await audit(req, "billing.subscribe_started", "tenant", tenant_id, { tenantId: tenant_id, actorId: u.id });
+      if (!sub.client_secret) throw new HttpError(502, "errors.paymentsUnavailable");
+      res.json({ ok: true, client_secret: sub.client_secret, subscription_id: sub.id });
+    }),
+  );
+
+  /** Called by the client right after Stripe confirms; webhooks do the same in the background. */
+  app.post(
+    "/api/app/billing/sync",
+    writeLimiter,
+    requireTenant("members.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const t = await loadBillingTenant(tenant_id);
+      if (!t.stripe_subscription_id) throw new HttpError(404, "errors.notFound");
+      const sub = await billingApi().getSubscription(t.stripe_subscription_id);
+      if (sub.customer !== t.stripe_customer_id) throw new HttpError(400, "errors.paymentMismatch");
+      const synced = await syncTenantSubscription(req, sub);
+      if (sub.status === "active" && synced?.changed) await audit(req, "billing.subscribed", "tenant", tenant_id, { tenantId: tenant_id, actorId: authed(res).id });
+      res.json({ ok: true, status: sub.status, plan: planFromSubscriptionStatus(sub.status) });
     }),
   );
 
   app.post(
-    "/api/app/events/:id/checkout/confirm",
-    requireTenant("events.manage"),
+    "/api/app/billing/payment-method/setup",
+    writeLimiter,
+    requireTenant("members.manage"),
+    route(async (_req, res) => {
+      const t = await loadBillingTenant(tenantCtx(res).tenant_id);
+      if (!t.stripe_customer_id) throw new HttpError(409, "errors.noSubscription");
+      res.json({ ok: true, ...(await billingApi().createSetupIntent(t.stripe_customer_id)) });
+    }),
+  );
+
+  app.post(
+    "/api/app/billing/payment-method",
+    writeLimiter,
+    requireTenant("members.manage"),
     route(async (req, res) => {
       const { tenant_id } = tenantCtx(res);
-      const eventId = parseId(req.params.id);
-      const intentId = z.string().regex(/^pi_[A-Za-z0-9_]{6,}$/).parse(req.body?.payment_intent_id);
-      const own = await db.query("SELECT id FROM payments WHERE provider_payment_id = ? AND event_id = ? AND tenant_id = ?", [intentId, eventId, tenant_id]);
-      if (!own[0]) throw new HttpError(404, "errors.notFound");
-      const intent = await paymentsApi().retrieveIntent(intentId);
-      if (Number(intent.metadata?.event_id) !== eventId || Number(intent.metadata?.tenant_id) !== tenant_id) throw new HttpError(400, "errors.paymentMismatch");
-      if (intent.status !== "succeeded") throw new HttpError(402, "errors.paymentNotCompleted", { status: intent.status });
-      await finalizePayment(req, intent);
-      const { event } = await loadTenantEvent(tenant_id, eventId);
-      res.json({ ok: true, event });
+      const pm = z.string().regex(/^pm_[A-Za-z0-9_]{6,}$/).parse(req.body?.payment_method_id);
+      const t = await loadBillingTenant(tenant_id);
+      if (!t.stripe_customer_id) throw new HttpError(409, "errors.noSubscription");
+      const api = billingApi();
+      const card = await api.setDefaultPaymentMethod(t.stripe_customer_id, pm);
+      if (t.stripe_subscription_id) await api.updateSubscription(t.stripe_subscription_id, { default_payment_method: pm });
+      await db.exec("UPDATE tenants SET card_brand = ?, card_last4 = ?, card_exp = ? WHERE id = ?", [card.brand, card.last4, card.exp, tenant_id]);
+      // A failed renewal is retried right away with the new card.
+      let retried: string | null = null;
+      if (t.subscription_status === "past_due" && t.stripe_subscription_id) {
+        const sub = await api.getSubscription(t.stripe_subscription_id);
+        if (sub.latest_invoice_id) {
+          retried = await api.payInvoice(sub.latest_invoice_id).catch(() => "failed");
+          await syncTenantSubscription(req, await api.getSubscription(t.stripe_subscription_id));
+        }
+      }
+      await audit(req, "billing.card_updated", "tenant", tenant_id, { tenantId: tenant_id, actorId: authed(res).id, meta: { brand: card.brand, last4: card.last4 } });
+      res.json({ ok: true, card, retried });
+    }),
+  );
+
+  const cancelSchema = z.object({
+    reason: z.enum(["too_expensive", "only_once", "missing_features", "too_complex", "switching", "other"]).default("other"),
+    feedback: z.string().trim().max(1000).optional().default(""),
+    confirm_name: z.string().trim().max(120),
+  });
+
+  /** Retention offer: one-time % off the next invoice (once per workspace). */
+  app.post(
+    "/api/app/billing/save-offer",
+    writeLimiter,
+    requireTenant("members.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const t = await loadBillingTenant(tenant_id);
+      const pricing = await pricingInfo();
+      // Only for healthy subscriptions: the coupon discounts the NEXT invoice, not an unpaid one.
+      if (!t.stripe_subscription_id || !["active", "trialing"].includes(t.subscription_status)) throw new HttpError(409, "errors.noSubscription");
+      if (t.save_offer_used_at || !pricing.save_offer_percent) throw new HttpError(409, "errors.offerUsed");
+      const claimed = await db.exec("UPDATE tenants SET save_offer_used_at = UTC_TIMESTAMP() WHERE id = ? AND save_offer_used_at IS NULL", [tenant_id]);
+      if (claimed.affectedRows !== 1) throw new HttpError(409, "errors.offerUsed");
+      const api = billingApi();
+      let sub: SubscriptionInfo;
+      try {
+        const coupon = await api.ensureCoupon(pricing.save_offer_percent);
+        sub = await api.updateSubscription(t.stripe_subscription_id, { coupon, cancel_at_period_end: false });
+      } catch (e) {
+        // Stripe failed: give the offer back.
+        await db.exec("UPDATE tenants SET save_offer_used_at = NULL WHERE id = ?", [tenant_id]);
+        throw e;
+      }
+      await syncTenantSubscription(req, sub);
+      await audit(req, "billing.save_offer_accepted", "tenant", tenant_id, { tenantId: tenant_id, actorId: authed(res).id, meta: { percent: pricing.save_offer_percent } });
+      res.json({ ok: true, percent: pricing.save_offer_percent });
+    }),
+  );
+
+  app.post(
+    "/api/app/billing/cancel",
+    writeLimiter,
+    requireTenant("members.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const body = cancelSchema.parse(req.body ?? {});
+      const t = await loadBillingTenant(tenant_id);
+      if (!t.stripe_subscription_id || !["active", "trialing", "past_due"].includes(t.subscription_status)) throw new HttpError(409, "errors.noSubscription");
+      // Confirmation "puzzle": type the workspace name (case/space-insensitive).
+      const norm = (v: string) => v.toLowerCase().replace(/\s+/g, " ").trim();
+      if (norm(body.confirm_name) !== norm(t.name)) throw new HttpError(400, "errors.confirmNameMismatch");
+      const stripeReason: Record<string, string> = { too_expensive: "too_expensive", only_once: "unused", missing_features: "missing_features", too_complex: "too_complex", switching: "switched_service", other: "other" };
+      const api = billingApi();
+      // past_due: there is no paid period left to keep. End it now and void the unpaid invoice so Stripe stops retrying the card.
+      const sub =
+        t.subscription_status === "past_due"
+          ? await api.cancelNow(t.stripe_subscription_id, stripeReason[body.reason])
+          : await api.updateSubscription(t.stripe_subscription_id, { cancel_at_period_end: true, cancel_reason: stripeReason[body.reason] });
+      await db.exec("UPDATE tenants SET cancel_reason = ?, cancel_feedback = ? WHERE id = ?", [body.reason, body.feedback || null, tenant_id]);
+      await syncTenantSubscription(req, sub);
+      await audit(req, "billing.cancel_scheduled", "tenant", tenant_id, { tenantId: tenant_id, actorId: authed(res).id, meta: { reason: body.reason } });
+      res.json({ ok: true, current_period_end: toSqlDate(sub.current_period_end) });
+    }),
+  );
+
+  app.post(
+    "/api/app/billing/resume",
+    writeLimiter,
+    requireTenant("members.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const t = await loadBillingTenant(tenant_id);
+      if (!t.stripe_subscription_id || !toBool(t.cancel_at_period_end)) throw new HttpError(409, "errors.noSubscription");
+      const sub = await billingApi().updateSubscription(t.stripe_subscription_id, { cancel_at_period_end: false });
+      await syncTenantSubscription(req, sub);
+      await audit(req, "billing.resumed", "tenant", tenant_id, { tenantId: tenant_id, actorId: authed(res).id });
+      res.json({ ok: true });
     }),
   );
 
@@ -1855,10 +2192,15 @@ function registerTenantRoutes(app: express.Express) {
 const TENANT_GRID: GridSpec = {
   sortMap: { id: "t.id", name: "t.name", status: "t.status", plan: "t.plan", created_at: "t.created_at", event_count: "event_count", member_count: "member_count" },
   defaultSort: "created_at",
-  filters: { status: { column: "t.status", values: ["active", "suspended", "archived"] }, plan: { column: "t.plan", values: ["free", "pro", "enterprise"] } },
+  filters: {
+    status: { column: "t.status", values: ["active", "suspended", "archived"] },
+    plan: { column: "t.plan", values: ["free", "pro", "enterprise"] },
+    subscription: { column: "t.subscription_status", values: ["none", "active", "past_due", "canceled", "incomplete", "trialing", "unpaid"] },
+  },
   search: ["t.name", "t.slug", "u.email"],
 };
 const TENANT_SELECT = `t.id, t.public_id, t.name, t.slug, t.status, t.plan, t.max_events, t.max_participants_per_event, t.created_at, u.email AS owner_email,
+  t.subscription_status, t.current_period_end, t.cancel_at_period_end,
   (SELECT COUNT(*) FROM tenant_members m WHERE m.tenant_id = t.id AND m.status = 'active') AS member_count,
   (SELECT COUNT(*) FROM events e WHERE e.tenant_id = t.id) AS event_count`;
 function mapTenant(r: any): AdminTenantRow {
@@ -1871,6 +2213,9 @@ function mapTenant(r: any): AdminTenantRow {
     plan: r.plan,
     max_events: Number(r.max_events),
     max_participants_per_event: Number(r.max_participants_per_event),
+    subscription_status: r.subscription_status ?? "none",
+    current_period_end: r.current_period_end ?? null,
+    cancel_at_period_end: toBool(r.cancel_at_period_end),
     owner_email: r.owner_email ?? null,
     member_count: Number(r.member_count ?? 0),
     event_count: Number(r.event_count ?? 0),
@@ -1923,7 +2268,9 @@ function registerAdminRoutes(app: express.Express) {
                   (SELECT COUNT(*) FROM email_log WHERE status = 'failed' AND created_at > UTC_TIMESTAMP() - INTERVAL 7 DAY) AS email_failures_7d,
                   (SELECT COALESCE(SUM(amount_cents), 0) FROM payments WHERE status = 'succeeded') AS revenue_cents,
                   (SELECT COALESCE(SUM(amount_cents), 0) FROM payments WHERE status = 'succeeded' AND created_at > UTC_TIMESTAMP() - INTERVAL 30 DAY) AS revenue_30d_cents,
-                  (SELECT COUNT(*) FROM events WHERE plan = 'pro') AS pro_events`,
+                  (SELECT COUNT(*) FROM events WHERE plan = 'pro') AS pro_events,
+                  (SELECT COUNT(*) FROM tenants WHERE subscription_status IN ('active','trialing','past_due')) AS active_subscriptions,
+                  (SELECT COUNT(*) FROM tenants WHERE subscription_status = 'past_due') AS past_due_subscriptions`,
         ),
         db.query(
           `SELECT d.day, COALESCE(t.c, 0) AS tenants, COALESCE(u.c, 0) AS users FROM
@@ -1939,7 +2286,8 @@ function registerAdminRoutes(app: express.Express) {
             ORDER BY a.id DESC LIMIT 10`,
         ),
       ]);
-      const kk = k[0] ?? {};
+      const kk = { ...(k[0] ?? {}) };
+      kk.mrr_cents = Number(kk.active_subscriptions ?? 0) * (await pricingInfo()).pro_price_cents;
       const out: CommandCenterOverview = {
         kpis: Object.fromEntries(Object.entries(kk).map(([key, v]) => [key, Number(v ?? 0)])) as CommandCenterOverview["kpis"],
         signups_by_day: signups.map((r) => ({ day: String(r.day).slice(0, 10), tenants: Number(r.tenants), users: Number(r.users) })),
@@ -2090,8 +2438,8 @@ function registerAdminRoutes(app: express.Express) {
       res.json(
         await runGrid(
           g,
-          "p.id, p.amount_cents, p.currency, p.status, p.card_brand, p.card_last4, p.provider_payment_id, p.created_at, t.name AS tenant_name, e.name AS event_name, u.email AS payer_email",
-          "payments p JOIN tenants t ON t.id = p.tenant_id JOIN events e ON e.id = p.event_id LEFT JOIN users u ON u.id = p.user_id",
+          "p.id, p.kind, p.amount_cents, p.currency, p.status, p.card_brand, p.card_last4, p.provider_payment_id, p.hosted_invoice_url, p.created_at, t.name AS tenant_name, e.name AS event_name, u.email AS payer_email",
+          "payments p JOIN tenants t ON t.id = p.tenant_id LEFT JOIN events e ON e.id = p.event_id LEFT JOIN users u ON u.id = p.user_id",
           (r): PaymentRow => ({
             id: Number(r.id),
             amount_cents: Number(r.amount_cents),
@@ -2101,7 +2449,9 @@ function registerAdminRoutes(app: express.Express) {
             card_last4: r.card_last4 ?? null,
             provider_payment_id: r.provider_payment_id,
             tenant_name: r.tenant_name,
-            event_name: r.event_name,
+            event_name: r.event_name ?? null,
+            kind: r.kind === "invoice" ? "invoice" : "one_time",
+            hosted_invoice_url: r.hosted_invoice_url ?? null,
             payer_email: r.payer_email ?? null,
             created_at: r.created_at,
           }),
@@ -2204,7 +2554,7 @@ function registerAdminRoutes(app: express.Express) {
     }),
   );
 
-  const EDITABLE_SETTINGS = ["session_days", "default_max_events", "default_max_participants", "signups_enabled", "free_max_participants", "pro_max_participants", "pro_price_cents"] as const;
+  const EDITABLE_SETTINGS = ["session_days", "default_max_events", "default_max_participants", "signups_enabled", "free_max_participants", "pro_max_participants", "pro_price_cents", "subscription_grace_days", "save_offer_percent"] as const;
   app.get(
     "/api/admin/settings",
     requirePlatform("overview"),
@@ -2302,7 +2652,7 @@ export const __test = {
   clearEmails: () => void emailDryRuns.splice(0),
   setEmailTransport: (fn: typeof emailTransport) => void (emailTransport = fn),
   clearSettingsCache: () => settingsCache.clear(),
-  setPaymentsApi: (api: PaymentsApi | null) => void (paymentsOverride = api),
+  setBillingApi: (api: BillingApi | null) => void (billingOverride = api),
   platformCan,
   tenantCan,
 };

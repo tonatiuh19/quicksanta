@@ -26,6 +26,7 @@ export default function Overview() {
         <>
           <div className="qs-stats">
             <StatCard label={t("admin.kpi.tenants")} value={o.kpis.tenants} hint={t("admin.kpi.active", { n: o.kpis.active_tenants })} icon={<Building2 size={18} />} />
+            <StatCard label={t("admin.kpi.mrr")} value={formatMoney(o.kpis.mrr_cents, "usd")} hint={t("admin.kpi.subs", { n: o.kpis.active_subscriptions })} tone="gold" icon={<DollarSign size={18} />} />
             <StatCard label={t("admin.kpi.revenue")} value={formatMoney(o.kpis.revenue_cents, "usd")} hint={t("admin.kpi.revenue30", { amount: formatMoney(o.kpis.revenue_30d_cents, "usd"), n: o.kpis.pro_events })} tone="green" icon={<DollarSign size={18} />} />
             <StatCard label={t("admin.kpi.users")} value={o.kpis.users} tone="gold" icon={<Users size={18} />} />
             <StatCard label={t("admin.kpi.events")} value={o.kpis.events} hint={t("admin.kpi.openDrawn", { open: o.kpis.open_events, drawn: o.kpis.drawn_events })} tone="green" icon={<CalendarHeart size={18} />} />

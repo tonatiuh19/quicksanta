@@ -57,7 +57,7 @@ export default function EventDetail() {
   }
   const { event, uses_draw, exclusions, assignments, pricing, tenant_plan, max_participants } = detail;
   const locked = event.status !== "open";
-  const canUpgrade = event.plan === "free" && tenant_plan !== "enterprise" && (event.status === "open" || event.status === "pending_payment");
+  const canUpgrade = tenant_plan === "free" && event.plan === "free" && (event.status === "open" || event.status === "pending_payment");
   const price = formatMoney(pricing.pro_price_cents, pricing.pro_currency, i18n.language.startsWith("es") ? "es-MX" : "en-US");
 
   const columns: DataGridColumn<ParticipantRow>[] = [
@@ -157,7 +157,7 @@ export default function EventDetail() {
             {t("checkout.upgrade")}
           </Button>
         </div>
-      ) : event.plan === "pro" ? (
+      ) : tenant_plan === "pro" || event.plan === "pro" ? (
         <p className="qs-pro-chip">
           <Sparkles size={14} /> {t("checkout.proActive", { max: max_participants })}
         </p>
@@ -171,14 +171,14 @@ export default function EventDetail() {
       <Modal open={payOpen} titleKey="checkout.modalTitle" onClose={() => setPayOpen(false)}>
         <div className="qs-modal-body">
           <CheckoutCard
-            eventId={event.id}
-            eventName={event.name}
+            mode="subscribe"
+            label={me?.memberships.find((m) => m.tenant_id === me.active_tenant_id)?.tenant_name ?? event.name}
             amountCents={pricing.pro_price_cents}
             currency={pricing.pro_currency}
             payerName={me?.full_name}
-            onPaid={() => {
+            onDone={() => {
               setPayOpen(false);
-              setToast(t("checkout.successToast"));
+              setToast(t("billing.subscribedToast"));
               refresh();
             }}
           />

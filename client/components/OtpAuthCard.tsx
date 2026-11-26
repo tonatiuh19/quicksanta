@@ -1,5 +1,6 @@
 /** Passwordless sign-in: email → 6-digit code. Used by /login, the wizard and /join. */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Mail } from "lucide-react";
 import OtpCodeInput from "@/components/portal/OtpCodeInput";
@@ -59,6 +60,9 @@ export default function OtpAuthCard({ defaultEmail = "", askName = false, onSign
             <Mail /> {busy ? t("auth.sending") : t("auth.sendCode")}
           </Button>
           <p className="qs-fine">{t("auth.noPassword")}</p>
+          <p className="qs-fine qs-consent">
+            {t("legal.consentPrefix")} <Link to="/terms">{t("legal.terms")}</Link> {t("legal.and")} <Link to="/privacy">{t("legal.privacy")}</Link>.
+          </p>
         </form>
       ) : (
         <div className="qs-form">

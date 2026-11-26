@@ -29,6 +29,15 @@ export default function Tenants() {
     { key: "owner_email", label: t("admin.tenants.col.owner") },
     { key: "status", label: t("admin.tenants.col.status"), sortable: true, render: (r) => <StatusBadge value={r.status} /> },
     { key: "plan", label: t("admin.tenants.col.plan"), sortable: true, render: (r) => <StatusBadge value={r.plan} labelKey={`plan.${r.plan}`} /> },
+    {
+      key: "subscription",
+      label: t("admin.tenants.col.subscription"),
+      render: (r) => {
+        const v = r.subscription_status === "active" && r.cancel_at_period_end ? "canceling" : r.subscription_status;
+        return v === "none" ? <span className="qs-muted">—</span> : <StatusBadge value={v} labelKey={`billing.status.${v}`} />;
+      },
+    },
+    { key: "renews", label: t("admin.tenants.col.renews"), render: (r) => formatDate(r.current_period_end, i18n.language) },
     { key: "member_count", label: t("admin.tenants.col.members"), sortable: true },
     { key: "event_count", label: t("admin.tenants.col.events"), sortable: true },
     { key: "created_at", label: t("admin.tenants.col.created"), sortable: true, render: (r) => formatDate(r.created_at, i18n.language) },
@@ -47,6 +56,7 @@ export default function Tenants() {
         filters={[
           { key: "status", label: t("admin.tenants.col.status"), options: ["active", "suspended", "archived"].map((v) => ({ value: v, label: t(`status.${v}`) })) },
           { key: "plan", label: t("admin.tenants.col.plan"), options: ["free", "pro", "enterprise"].map((v) => ({ value: v, label: t(`plan.${v}`) })) },
+          { key: "subscription", label: t("admin.tenants.col.subscription"), options: ["active", "past_due", "canceled", "incomplete", "none"].map((v) => ({ value: v, label: t(`billing.status.${v}`) })) },
         ]}
         mobileCard={(r) => (
           <button type="button" className="qs-mobile-card" onClick={() => setParams({ open: String(r.id) })}>

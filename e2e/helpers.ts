@@ -73,5 +73,13 @@ export async function noSidewaysScroll(page: Page) {
 }
 
 export async function cleanup() {
+  // Test-mode Stripe customers created by these fixtures (cancels their subscriptions too).
+  const [rows] = (await pool.query("SELECT t.stripe_customer_id FROM tenants t JOIN users u ON u.id = t.created_by WHERE u.email LIKE ? AND t.stripe_customer_id IS NOT NULL", [`${prefix}%`])) as any;
+  const sk = process.env.STRIPE_SECRET_KEY || "";
+  if (sk.startsWith("sk_test_")) {
+    const { default: Stripe } = await import("stripe");
+    const stripe = new Stripe(sk);
+    for (const r of rows) await stripe.customers.del(r.stripe_customer_id).catch(() => undefined);
+  }
   await cleanupByPrefix(pool, prefix);
 }

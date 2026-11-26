@@ -199,6 +199,9 @@ export interface AdminTenantRow {
   max_events: number;
   max_participants_per_event: number;
   owner_email: string | null;
+  subscription_status: SubscriptionStatus;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
   member_count: number;
   event_count: number;
   created_at: string;
@@ -256,6 +259,9 @@ export interface CommandCenterOverview {
     revenue_cents: number;
     revenue_30d_cents: number;
     pro_events: number;
+    active_subscriptions: number;
+    past_due_subscriptions: number;
+    mrr_cents: number;
   };
   signups_by_day: Array<{ day: string; tenants: number; users: number }>;
   events_by_type: Array<{ slug: string; name: string; count: number }>;
@@ -317,6 +323,35 @@ export interface PricingInfo {
   pro_max_participants: number;
   pro_price_cents: number;
   pro_currency: string;
+  pro_interval: "month";
+  grace_days: number;
+  save_offer_percent: number;
+}
+
+export type SubscriptionStatus = "none" | "incomplete" | "incomplete_expired" | "trialing" | "active" | "past_due" | "canceled" | "unpaid" | "paused";
+export type CancelReason = "too_expensive" | "only_once" | "missing_features" | "too_complex" | "switching" | "other";
+
+export interface BillingInvoice {
+  id: string;
+  number: string | null;
+  status: string | null;
+  amount_cents: number;
+  currency: string;
+  created: number;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+}
+
+export interface BillingOverview {
+  plan: "free" | "pro" | "enterprise";
+  status: SubscriptionStatus;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  save_offer_available: boolean;
+  card: { brand: string | null; last4: string | null; exp: string | null } | null;
+  pricing: PricingInfo;
+  usage: { events: number; largest: number; pending: number; limit: number };
+  invoices: BillingInvoice[];
 }
 
 export interface CheckoutSession {
@@ -335,7 +370,9 @@ export interface PaymentRow {
   card_last4: string | null;
   provider_payment_id: string;
   tenant_name: string;
-  event_name: string;
+  event_name: string | null;
+  kind: "one_time" | "invoice";
+  hosted_invoice_url: string | null;
   payer_email: string | null;
   created_at: string;
 }

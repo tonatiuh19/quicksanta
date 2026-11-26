@@ -46,7 +46,7 @@ export function StatCard({ label, value, hint, tone = "default", icon }: { label
 
 const STATUS_TONE: Record<string, string> = {
   active: "green", joined: "green", open: "green", sent: "green", drawn: "blue",
-  invited: "gold", pending_payment: "gold", pending: "gold", succeeded: "green", refunded: "gray", draft: "gray", dry_run: "gray", pro: "blue", enterprise: "purple", free: "gray",
+  invited: "gold", canceling: "gold", past_due: "red", trialing: "blue", incomplete: "gold", none: "gray", pending_payment: "gold", pending: "gold", succeeded: "green", refunded: "gray", draft: "gray", dry_run: "gray", pro: "blue", enterprise: "purple", free: "gray",
   suspended: "red", failed: "red", declined: "red", cancelled: "red", removed: "gray", archived: "gray", completed: "gray",
   owner: "purple", admin: "blue", organizer: "blue", participant: "gray",
 };

@@ -38,6 +38,10 @@ Badges (`StatusBadge`): green = active/joined/open/sent, blue = drawn/organizer/
 
 `CheckoutCard`: Stripe split card fields (number / expiry / CVC, brand-styled iframes) beside a live 3D card that floats, shows the detected brand (Visa blue, Mastercard graphite, Amex teal, default QuickSanta red), flips to the back while the CVC is focused and glows gold when complete. Pay button shows the amount; success overlay with pop animation. Wizard review has a Free/Pro plan picker (Pro forced above the free limit); event pages show a gold "Upgrade to Pro" banner or a red "Payment pending" banner.
 
+## Billing portal
+
+`/app/billing`: Pro "plan hero" (red gradient with a slow shine, crown icon, price/month, renewal line, usage meter that turns gold→red near the limit); Free shows the upgrade box. Payment-method card shows a mini credit card in brand colors. Invoices table with view/PDF icons. Banners: red past-due (fix card), gold scheduled-cancel (resume). Cancel flow is a 3-step modal with a progress bar: reason chips (optional) → save offer card (bobbing icon) → confirm by typing the workspace name (primary button = Keep Pro). Legal pages use `.qs-legal` (820px reading column, scrollable tables).
+
 ## Email chrome
 
 `emailLayout()` in `api/index.ts`: cream background, 520px white card, red header "🎁 QuickSanta", red pill CTA, muted footer. Templates: OTP (big spaced code), invitation, assignment ready. EN/ES by `Accept-Language`.

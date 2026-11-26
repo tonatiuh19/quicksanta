@@ -3378,3 +3378,386 @@ form .qs-modal-actions {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Plan & billing portal ──────────────────────────────────────────── */
+.qs-billing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.qs-plan-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 1.4rem;
+  background: #fff;
+  border: 1px solid var(--qs-line);
+  box-shadow: var(--qs-shadow);
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+.qs-plan-hero.is-pro,
+.qs-plan-hero.is-enterprise {
+  color: #fff;
+  border: 0;
+  background:
+    radial-gradient(circle at 90% 0%, rgb(253 230 138 / 0.45), transparent 45%),
+    linear-gradient(140deg, var(--qs-red-deep), #b91c1c 60%, #dc2626);
+  box-shadow: 0 30px 60px -32px rgb(127 29 29 / 0.8);
+}
+.qs-plan-hero.is-pro::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 45%, rgb(255 255 255 / 0.12) 50%, transparent 55%);
+  animation: qs-cc-shine 6s ease-in-out infinite;
+  pointer-events: none;
+}
+.qs-plan-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+.qs-plan-hero-top h2 {
+  margin: 0.1rem 0 0;
+  font-size: 1.7rem;
+  letter-spacing: -0.03em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.qs-plan-hero.is-pro .qs-kicker {
+  color: var(--qs-gold-soft);
+}
+.qs-plan-hero-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fee2e2, #fef3c7);
+  color: var(--qs-red);
+}
+.qs-plan-hero.is-pro .qs-plan-hero-icon {
+  background: rgb(255 255 255 / 0.16);
+  color: var(--qs-gold-soft);
+}
+.qs-plan-hero-price {
+  margin: 0 0 0 auto;
+}
+.qs-plan-hero-price strong {
+  font-size: 2rem;
+  letter-spacing: -0.04em;
+}
+.qs-plan-hero-price span {
+  opacity: 0.8;
+}
+.qs-plan-hero-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-weight: 600;
+  opacity: 0.92;
+}
+.qs-usage {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: var(--qs-cream);
+}
+.qs-plan-hero.is-pro .qs-usage {
+  background: rgb(255 255 255 / 0.12);
+}
+.qs-plan-hero.is-pro .qs-usage .qs-fine {
+  color: rgb(255 255 255 / 0.8);
+}
+.qs-usage-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.qs-usage-top span {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.qs-meter {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.08);
+  overflow: hidden;
+}
+.qs-meter span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--qs-green), var(--qs-gold));
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.qs-meter.is-hot span {
+  background: linear-gradient(90deg, var(--qs-gold), #dc2626);
+}
+.qs-upgrade-box {
+  display: grid;
+  gap: 0.6rem;
+}
+.qs-upgrade-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+.qs-upgrade-box li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.qs-upgrade-box li svg {
+  color: var(--qs-green);
+}
+.qs-pm-card {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+}
+.qs-mini-card {
+  position: relative;
+  aspect-ratio: 1.586;
+  max-width: 260px;
+  border-radius: 16px;
+  padding: 1rem;
+  color: #fff;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: linear-gradient(135deg, #7f1d1d, #dc2626);
+  box-shadow: 0 20px 40px -24px rgb(0 0 0 / 0.6);
+}
+.qs-mini-card.qs-cc--visa {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+}
+.qs-mini-card.qs-cc--mc {
+  background: linear-gradient(135deg, #111827, #374151);
+}
+.qs-mini-card.qs-cc--amex {
+  background: linear-gradient(135deg, #065f46, #0d9488);
+}
+.qs-mini-card strong {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-style: italic;
+  font-weight: 900;
+}
+.qs-mini-num {
+  align-self: end;
+  font-family: ui-monospace, monospace;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+}
+.qs-mini-exp {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+.qs-invoices {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.qs-invoices th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--qs-slate);
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--qs-line);
+  white-space: nowrap;
+}
+.qs-invoices td {
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--qs-line);
+  white-space: nowrap;
+}
+.qs-inv-links {
+  display: flex;
+  gap: 0.6rem;
+}
+.qs-manage {
+  margin-top: 1.4rem;
+  border-top: 1px dashed var(--qs-line);
+  padding-top: 0.6rem;
+}
+.qs-manage-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--qs-slate);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.3rem 0;
+}
+.qs-manage-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.qs-manage-body {
+  padding: 0.4rem 0;
+  animation: qs-rise 0.25s ease;
+}
+.qs-cancel-link {
+  color: var(--qs-slate) !important;
+  text-decoration: underline;
+  font-weight: 600 !important;
+}
+.qs-cancel {
+  display: grid;
+  gap: 0.9rem;
+}
+.qs-cancel h3 {
+  margin: 0;
+}
+.qs-cancel-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 0.35rem;
+}
+.qs-cancel-steps li {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: hsl(var(--border));
+}
+.qs-cancel-steps li.is-done,
+.qs-cancel-steps li.is-current {
+  background: var(--qs-red);
+}
+.qs-reasons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.qs-reason {
+  text-align: left;
+  border: 1.5px solid var(--qs-line);
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.qs-reason.is-selected {
+  border-color: var(--qs-red);
+  background: #fff7f7;
+}
+.qs-offer {
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.2rem;
+  border-radius: 18px;
+  background: linear-gradient(140deg, #fff7ed, #fef2f2);
+}
+.qs-offer-icon {
+  display: grid;
+  place-items: center;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #dc2626, var(--qs-gold));
+  color: #fff;
+  animation: qs-bob 2.4s ease-in-out infinite;
+}
+.qs-offer p {
+  margin: 0;
+  color: var(--qs-slate);
+}
+.qs-lose {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.3rem;
+  color: var(--qs-slate);
+  font-size: 0.9rem;
+}
+.qs-danger-ghost {
+  color: var(--qs-red-deep) !important;
+}
+.qs-plan-opt-price small {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--qs-slate);
+}
+.qs-consent a {
+  font-weight: 700;
+}
+
+/* ── Legal pages ─────────────────────────────────────────────────────── */
+.qs-legal {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  line-height: 1.7;
+  color: var(--qs-ink);
+}
+.qs-legal h1 {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  letter-spacing: -0.04em;
+  margin: 0.5rem 0;
+}
+.qs-legal h2 {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.25rem;
+}
+.qs-legal table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin: 0.8rem 0;
+}
+.qs-legal th,
+.qs-legal td {
+  text-align: left;
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--qs-line);
+  vertical-align: top;
+}
+.qs-legal em {
+  color: var(--qs-slate);
+}
+.qs-landing-foot {
+  flex-wrap: wrap;
+}
+.qs-landing-foot a {
+  color: var(--qs-slate);
+  font-weight: 700;
+  text-decoration: none;
+}
+@media (max-width: 900px) {
+  .qs-billing-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .qs-reasons {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .qs-plan-hero-price {
+    margin-left: 0;
+    width: 100%;
+  }
+}

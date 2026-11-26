@@ -546,34 +546,99 @@ paths:
   /api/webhooks/stripe:
     post:
       tags: [Billing]
-      summary: Stripe webhook (payment_intent.succeeded / payment_failed / canceled). Signature verified on the raw body with STRIPE_WEBHOOK_SECRET.
+      summary: Stripe webhook (customer.subscription.created/updated/deleted, invoice.paid, invoice.payment_failed). Signature verified on the raw body with STRIPE_WEBHOOK_SECRET.
       responses:
         '200': { description: Received }
         '400': { description: Bad signature }
-  /api/app/events/{id}/checkout:
-    post:
+  /api/app/billing:
+    get:
       tags: [Billing]
-      summary: Create (or reuse) the Pro PaymentIntent for this exchange; returns client_secret for Stripe Elements
-      description: "Guard: requireTenant(events.manage). 409 errors.alreadyPro when paid or Enterprise."
+      summary: Plan & billing overview (plan, status, renewal, card, usage, invoices)
+      description: "Guard: requireTenant(members.manage)"
       security: [{ session: [] }]
       parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
         - $ref: '#/components/parameters/TenantHeader'
       responses:
-        '200': { description: "{ client_secret, payment_intent_id, amount_cents, currency }" }
+        '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-  /api/app/events/{id}/checkout/confirm:
+  /api/app/billing/subscribe:
     post:
       tags: [Billing]
-      summary: Verify the PaymentIntent with Stripe and unlock Pro (idempotent; opens pending exchanges and sends queued invites)
-      description: "Guard: requireTenant(events.manage). Body { payment_intent_id }."
+      summary: Start (or resume an unfinished) Pro subscription on STRIPE_PLATFORM_PRICE_ID; returns the first invoice client_secret
+      description: "Guard: requireTenant(members.manage)"
       security: [{ session: [] }]
       parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/billing/sync:
+    post:
+      tags: [Billing]
+      summary: Re-read the subscription from Stripe and mirror it on the workspace (opens pending exchanges when Pro)
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/billing/payment-method/setup:
+    post:
+      tags: [Billing]
+      summary: SetupIntent client_secret for updating the card
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/billing/payment-method:
+    post:
+      tags: [Billing]
+      summary: Set the default card on customer + subscription; retries a past_due invoice. Body { payment_method_id }
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
         - $ref: '#/components/parameters/TenantHeader'
       requestBody: { content: { application/json: { schema: { type: object } } } }
       responses:
-        '200': { description: "{ event }" }
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/billing/save-offer:
+    post:
+      tags: [Billing]
+      summary: Retention offer: one-time % off next invoice (once per workspace)
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/billing/cancel:
+    post:
+      tags: [Billing]
+      summary: Cancel at period end. Body { reason, feedback?, confirm_name } (must equal the workspace name)
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/billing/resume:
+    post:
+      tags: [Billing]
+      summary: Undo a scheduled cancellation
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/admin/payments:
     get:

@@ -1,19 +1,23 @@
 /**
- * Pro checkout: Stripe's secure card fields (number / expiry / CVC iframes, ported from groundwork's
- * SecureCardForm) next to a live 3D card that mirrors what you type: brand, flip on CVC, glow when valid.
- * Card data goes straight to Stripe; our API only creates/confirms the PaymentIntent (appSlice thunks).
+ * Secure card form (Stripe split Elements, ported from groundwork's SecureCardForm) beside a live 3D card
+ * that mirrors what you type: brand colors, flip on CVC, gold glow when complete.
+ *
+ * Modes:
+ * - "subscribe": starts the Pro subscription ($8.90/month), pays its first invoice, then syncs the workspace.
+ * - "update":    saves a new card for renewals (SetupIntent) and retries a failed renewal.
+ * Card data goes straight to Stripe; our API only creates/syncs (appSlice thunks).
  */
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { loadStripe, type StripeElementStyle } from "@stripe/stripe-js";
 import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
-import { CalendarClock, CheckCircle2, CreditCard, KeyRound, Loader2, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { CalendarClock, CheckCircle2, CreditCard, KeyRound, Loader2, Lock, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { formatMoney } from "@shared/api";
 import { ErrorNote } from "@/components/kit";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAppDispatch } from "@/store/hooks";
-import { confirmCheckout, startCheckout } from "@/store/slices/appSlice";
+import { saveCard, startCardUpdate, startSubscription, syncSubscription } from "@/store/slices/appSlice";
 
 const PUBLISHABLE_KEY = String(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
 let stripePromise: ReturnType<typeof loadStripe> | null = null;
@@ -39,15 +43,16 @@ const BRAND: Record<string, { label: string; tone: string }> = {
 type FieldKey = "number" | "expiry" | "cvc";
 
 export type CheckoutProps = {
-  eventId: number;
-  eventName: string;
+  mode?: "subscribe" | "update";
   amountCents: number;
   currency: string;
+  /** e.g. the workspace name, shown in the lead line */
+  label: string;
   payerName?: string;
-  onPaid: () => void;
+  onDone: () => void;
 };
 
-function CardForm({ eventId, eventName, amountCents, currency, payerName, onPaid }: CheckoutProps) {
+function CardForm({ mode = "subscribe", amountCents, currency, label, payerName, onDone }: CheckoutProps) {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const stripe = useStripe();
@@ -57,9 +62,10 @@ function CardForm({ eventId, eventName, amountCents, currency, payerName, onPaid
   const [focus, setFocus] = useState<FieldKey | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"idle" | "paying" | "paid">("idle");
+  const [phase, setPhase] = useState<"idle" | "paying" | "done">("idle");
   const ready = Boolean(stripe && elements) && done.number && done.expiry && done.cvc;
   const price = formatMoney(amountCents, currency, i18n.language.startsWith("es") ? "es-MX" : "en-US");
+  const isUpdate = mode === "update";
 
   const track = (key: FieldKey) => ({
     options: { style: FIELD_STYLE, ...(key === "number" ? { showIcon: true, iconStyle: "solid" as const, disableLink: true } : {}) },
@@ -72,20 +78,34 @@ function CardForm({ eventId, eventName, amountCents, currency, payerName, onPaid
     },
   });
 
-  const pay = async () => {
+  const submit = async () => {
     if (!stripe || !elements) return;
     const card = elements.getElement(CardNumberElement);
     if (!card) return;
     setError(null);
     setPhase("paying");
     try {
-      const session = await dispatch(startCheckout(eventId)).unwrap();
-      if (!session.client_secret) throw new Error("errors.paymentsUnavailable");
-      const r = await stripe.confirmCardPayment(session.client_secret, { payment_method: { card, billing_details: { name: payerName || undefined } } });
-      if (r.error || r.paymentIntent?.status !== "succeeded") throw new Error(r.error?.message || "errors.paymentNotCompleted");
-      await dispatch(confirmCheckout({ eventId, paymentIntentId: r.paymentIntent.id })).unwrap();
-      setPhase("paid");
-      setTimeout(onPaid, 1400);
+      const billing_details = { name: payerName || undefined };
+      if (isUpdate) {
+        const { client_secret } = await dispatch(startCardUpdate()).unwrap();
+        const r = await stripe.confirmCardSetup(client_secret, { payment_method: { card, billing_details } });
+        if (r.error || !r.setupIntent?.payment_method) throw new Error(r.error?.message || "errors.cardNotSaved");
+        const pm = typeof r.setupIntent.payment_method === "string" ? r.setupIntent.payment_method : r.setupIntent.payment_method.id;
+        const saved = await dispatch(saveCard(pm)).unwrap();
+        if (saved.retried && saved.retried !== "paid") throw new Error("errors.retryFailed");
+      } else {
+        const { client_secret } = await dispatch(startSubscription()).unwrap();
+        // confirmCardPayment also runs 3-D Secure in Stripe's modal when the bank asks for it.
+        const r = await stripe.confirmCardPayment(client_secret, { payment_method: { card, billing_details } });
+        const status = r.paymentIntent?.status;
+        if (r.error || (status !== "succeeded" && status !== "processing")) throw new Error(r.error?.message || "errors.paymentNotCompleted");
+        // Money is taken (or processing): never show an error now. If the sync call fails, the webhook finishes it.
+        await dispatch(syncSubscription())
+          .unwrap()
+          .catch(() => undefined);
+      }
+      setPhase("done");
+      setTimeout(onDone, 1300);
     } catch (e) {
       setPhase("idle");
       setError(e instanceof Error ? e.message : String(e));
@@ -94,7 +114,7 @@ function CardForm({ eventId, eventName, amountCents, currency, payerName, onPaid
 
   const b = BRAND[brand];
   return (
-    <div className={cn("qs-checkout", phase === "paid" && "is-paid")}>
+    <div className={cn("qs-checkout", phase === "done" && "is-paid")}>
       <div className={cn("qs-cc", focus === "cvc" && "is-flipped", ready && "is-ready", b && `qs-cc--${b.tone}`)} aria-hidden>
         <div className="qs-cc-inner">
           <div className="qs-cc-front">
@@ -125,11 +145,11 @@ function CardForm({ eventId, eventName, amountCents, currency, payerName, onPaid
       <div className="qs-checkout-form">
         <div className="qs-checkout-head">
           <span className="qs-checkout-lock" aria-hidden>
-            <Lock size={16} />
+            {isUpdate ? <RefreshCw size={16} /> : <Lock size={16} />}
           </span>
           <div>
-            <strong>{t("checkout.title", { price })}</strong>
-            <span>{t("checkout.lead", { name: eventName })}</span>
+            <strong>{isUpdate ? t("billing.updateTitle") : t("checkout.subTitle", { price })}</strong>
+            <span>{isUpdate ? t("billing.updateLead") : t("checkout.subLead", { name: label })}</span>
           </div>
         </div>
 
@@ -160,10 +180,11 @@ function CardForm({ eventId, eventName, amountCents, currency, payerName, onPaid
         ) : null}
         <ErrorNote error={error} />
 
-        <Button className="qs-btn-primary qs-pay-btn" disabled={!ready || phase !== "idle"} onClick={() => void pay()}>
-          {phase === "paying" ? <Loader2 className="spin" /> : phase === "paid" ? <CheckCircle2 /> : <ShieldCheck />}
-          {phase === "paying" ? t("checkout.paying") : phase === "paid" ? t("checkout.paid") : t("checkout.pay", { price })}
+        <Button className="qs-btn-primary qs-pay-btn" disabled={!ready || phase !== "idle"} onClick={() => void submit()}>
+          {phase === "paying" ? <Loader2 className="spin" /> : phase === "done" ? <CheckCircle2 /> : <ShieldCheck />}
+          {phase === "paying" ? t("checkout.paying") : phase === "done" ? t(isUpdate ? "billing.cardSaved" : "checkout.paid") : isUpdate ? t("billing.saveCard") : t("checkout.subscribe", { price })}
         </Button>
+        {!isUpdate ? <p className="qs-fine center">{t("checkout.subFine")}</p> : null}
         <ul className="qs-checkout-trust">
           <li>
             <Lock size={13} aria-hidden /> {t("checkout.trustEncrypted")}
@@ -174,12 +195,12 @@ function CardForm({ eventId, eventName, amountCents, currency, payerName, onPaid
         </ul>
       </div>
 
-      {phase === "paid" ? (
+      {phase === "done" ? (
         <div className="qs-checkout-success" role="status">
           <span>
             <Sparkles size={30} />
           </span>
-          <strong>{t("checkout.successTitle")}</strong>
+          <strong>{t(isUpdate ? "billing.cardSavedTitle" : "checkout.successTitle")}</strong>
         </div>
       ) : null}
     </div>

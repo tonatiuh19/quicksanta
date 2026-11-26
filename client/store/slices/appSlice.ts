@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { CheckoutSession, EventRow, ExclusionRow, MyAssignment, PricingInfo, TenantDashboard } from "@shared/api";
+import type { BillingOverview, CancelReason, EventRow, ExclusionRow, MyAssignment, PricingInfo, TenantDashboard } from "@shared/api";
 import { api } from "@/lib/api";
 import { createApiThunk } from "@/lib/portalThunk";
 
@@ -46,10 +46,19 @@ export const updateTenant = createApiThunk("app/updateTenant", async (arg: { nam
 
 // ── Pro checkout (Stripe) ──
 export const fetchPricing = createApiThunk("app/pricing", async () => (await api.get<PricingInfo & { ok: true }>("/pricing")).data);
-export const startCheckout = createApiThunk("app/startCheckout", async (eventId: number) => (await api.post<CheckoutSession>(`/app/events/${eventId}/checkout`, {})).data);
-export const confirmCheckout = createApiThunk("app/confirmCheckout", async (arg: { eventId: number; paymentIntentId: string }) =>
-  (await api.post<{ event: EventRow }>(`/app/events/${arg.eventId}/checkout/confirm`, { payment_intent_id: arg.paymentIntentId })).data.event,
+// ── Billing (Pro subscription per workspace) ──
+export const fetchBilling = createApiThunk("app/billing", async () => (await api.get<BillingOverview & { ok: true }>("/app/billing")).data);
+export const startSubscription = createApiThunk("app/subscribe", async () => (await api.post<{ client_secret: string; subscription_id: string }>("/app/billing/subscribe", {})).data);
+export const syncSubscription = createApiThunk("app/syncSubscription", async () => (await api.post<{ status: string; plan: string }>("/app/billing/sync", {})).data);
+export const startCardUpdate = createApiThunk("app/startCardUpdate", async () => (await api.post<{ client_secret: string }>("/app/billing/payment-method/setup", {})).data);
+export const saveCard = createApiThunk("app/saveCard", async (paymentMethodId: string) => (await api.post<{ card: { brand: string; last4: string; exp: string }; retried: string | null }>("/app/billing/payment-method", { payment_method_id: paymentMethodId })).data);
+export const acceptSaveOffer = createApiThunk("app/saveOffer", async () => (await api.post<{ percent: number }>("/app/billing/save-offer", {})).data);
+export const cancelSubscription = createApiThunk("app/cancelSubscription", async (arg: { reason: CancelReason; feedback: string; confirm_name: string }) =>
+  (await api.post<{ current_period_end: string | null }>("/app/billing/cancel", arg)).data,
 );
+export const resumeSubscription = createApiThunk("app/resumeSubscription", async () => {
+  await api.post("/app/billing/resume", {});
+});
 
 interface AppState {
   dashboard: TenantDashboard | null;
@@ -57,11 +66,12 @@ interface AppState {
   myEvents: MyEventRow[];
   my: MyAssignment | null;
   pricing: PricingInfo | null;
+  billing: BillingOverview | null;
   loading: Record<string, boolean>;
   error: string | null;
   busy: boolean;
 }
-const initialState: AppState = { dashboard: null, detail: null, myEvents: [], my: null, pricing: null, loading: {}, error: null, busy: false };
+const initialState: AppState = { dashboard: null, detail: null, myEvents: [], my: null, pricing: null, billing: null, loading: {}, error: null, busy: false };
 
 const slice = createSlice({
   name: "app",
@@ -101,7 +111,10 @@ const slice = createSlice({
     track(removeExclusion, "busy", () => undefined);
     track(updateMember, "busy", () => undefined);
     track(fetchPricing, "pricing", (s, p) => void (s.pricing = p));
-    track(confirmCheckout, "busy", (s, p) => void (s.detail && s.detail.event.id === p.id && (s.detail.event = p)));
+    track(fetchBilling, "billing", (s, p) => void (s.billing = p));
+    track(acceptSaveOffer, "busy", () => undefined);
+    track(cancelSubscription, "busy", () => undefined);
+    track(resumeSubscription, "busy", () => undefined);
   },
 });
 

@@ -86,7 +86,9 @@ export default function PortalShell({ kind, titleKey, nav, tabs, allow, denyPath
     };
   }, [navOpen]);
 
-  if (!bootstrapped || loadingMe) {
+  // Only the first load shows the loader: background refreshes (fetchMe after billing / workspace changes)
+  // must not unmount the page, or its local state (toasts, open dialogs) is lost.
+  if (!bootstrapped || (loadingMe && !user)) {
     return (
       <div className="portal-shell-loading" role="status" aria-live="polite">
         <span className="qs-spinner" aria-hidden />

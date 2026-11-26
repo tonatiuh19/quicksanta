@@ -340,7 +340,9 @@ export default function Landing() {
       </section>
 
       <footer className="qs-landing-foot">
-        <Brand compact /> <span>© {new Date().getFullYear()} QuickSanta</span>
+        <Brand compact /> <span>© {new Date().getFullYear()} QuickSanta · Disrupting Labs</span>
+        <Link to="/privacy">{t("legal.privacy")}</Link>
+        <Link to="/terms">{t("legal.terms")}</Link>
       </footer>
     </div>
   );

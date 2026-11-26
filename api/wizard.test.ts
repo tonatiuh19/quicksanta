@@ -56,7 +56,7 @@ describe("POST /api/wizard/launch", () => {
 
   it("reuses the tenant the user already organizes and enforces its event limit", async () => {
     signIn(fake, {}, [{ tenant_id: 9, role: "organizer" }]);
-    fake.on(/SELECT plan, max_events, max_participants_per_event/, [{ max_events: 1, max_participants_per_event: 100, active: 1 }]);
+    fake.on(/SELECT plan, subscription_status, current_period_end, past_due_since, max_events/, [{ max_events: 1, max_participants_per_event: 100, active: 1 }]);
     const r = await request(app).post("/api/wizard/launch").set("Cookie", sessionCookie).send(input());
     expect(r.status).toBe(402);
     expect(r.body.error).toBe("errors.eventLimit");
