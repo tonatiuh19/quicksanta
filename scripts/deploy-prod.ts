@@ -406,6 +406,23 @@ async function tagRelease(version: string): Promise<void> {
  * Typecheck + Vercel inline monolith gate + vitest — must pass before prod.
  * Relative runtime imports from api/index.ts → ERR_MODULE_NOT_FOUND on Vercel.
  */
+/**
+ * The new code reads columns created by migrations: refuse to deploy while any file in
+ * database/migrations is missing from schema_migrations (run `npm run db:migrate` first).
+ */
+async function checkMigrationsApplied() {
+  const files = fs.readdirSync(path.join(process.cwd(), "database/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const applied = await withDb(async (conn) => {
+    const [rows] = await conn.query<mysql.RowDataPacket[]>("SELECT filename FROM schema_migrations");
+    return new Set((rows as mysql.RowDataPacket[]).map((r) => String(r.filename)));
+  });
+  const pending = files.filter((f) => !applied.has(f));
+  if (pending.length) {
+    throw new Error(`Pending database migrations (production code needs them):\n  ${pending.join("\n  ")}\nRun: npm run db:migrate, then deploy again.`);
+  }
+  console.log(`✅ Database migrations up to date (${files.length}).\n`);
+}
+
 async function runPreDeployChecks() {
   console.log("\n🧪 Pre-deploy checks: api inline + typecheck + tests...\n");
 
@@ -416,6 +433,9 @@ async function runPreDeployChecks() {
       "api/index.ts has relative runtime imports — inline the logic before deploying to Vercel.",
     );
   }
+
+  stage = "migrations";
+  await checkMigrationsApplied();
 
   stage = "typecheck";
   await runCommand("npm", ["run", "typecheck"]);
@@ -460,8 +480,8 @@ const REQUIRED_PROD_ENV: Array<{ name: string; why: string; fix: string }> = [
   { name: "DB_NAME", why: "TiDB Cloud database name", fix: "Add DB_NAME to Vercel Production" },
   { name: "RESEND_API_KEY", why: "OTP login codes and invitation emails", fix: "Resend → API Keys → add to Vercel Production" },
   { name: "SMTP_FROM", why: "sender address for every email (verified Resend domain)", fix: 'Add SMTP_FROM, e.g. "QuickSanta <hello@yourdomain.com>"' },
-  { name: "STRIPE_SECRET_KEY", why: "Pro checkout ($8.90 per exchange) — server side", fix: "Stripe → Developers → API keys → add the secret key to Vercel Production" },
-  { name: "VITE_STRIPE_PUBLISHABLE_KEY", why: "the secure card fields in the Pro checkout (needed at build time)", fix: "Stripe → Developers → API keys → add the publishable key to Vercel Production" },
+  { name: "STRIPE_SECRET_KEY", why: "Pro subscription ($8.90/month per workspace) — server side", fix: "Stripe → Developers → API keys → add the secret key to Vercel Production" },
+  { name: "VITE_STRIPE_PUBLISHABLE_KEY", why: "the secure card fields in the Pro checkout (needed at build time; STRIPE_PUBLISHABLE_KEY is accepted as an alias)", fix: "Stripe → Developers → API keys → add the publishable key to Vercel Production" },
   { name: "STRIPE_PLATFORM_PRICE_ID", why: "the Pro subscription price ($8.90/month) used by /api/app/billing/subscribe", fix: "Stripe → Products → Pro → copy the monthly price id (price_…) to Vercel Production" },
   { name: "STRIPE_WEBHOOK_SECRET", why: "verifying /api/webhooks/stripe (marks exchanges paid even if the browser closes)", fix: "Stripe → Webhooks → endpoint https://<domain>/api/webhooks/stripe (customer.subscription.created/updated/deleted, invoice.paid, invoice.payment_failed) → copy signing secret" },
   { name: "CRON_SECRET", why: "protects /api/cron/cleanup in production", fix: "Add CRON_SECRET (any long random string); Vercel sends it automatically to crons" },

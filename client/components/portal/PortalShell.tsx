@@ -11,7 +11,7 @@ import { LogOut, MoreHorizontal, X, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { platformCan, type PlatformPerm, type TenantRole } from "@shared/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchMe, logout, switchTenant } from "@/store/slices/authSlice";
+import { fetchMe, logout, sessionExpired, switchTenant } from "@/store/slices/authSlice";
 import { Brand } from "@/components/kit";
 
 export type NavItem = {
@@ -200,7 +200,9 @@ export default function PortalShell({ kind, titleKey, nav, tabs, allow, denyPath
             className="portal-logout"
             onClick={async () => {
               closeNav();
-              await dispatch(logout());
+              // Even if the request fails, never leave a "half signed out" UI behind.
+              const r = await dispatch(logout());
+              if (logout.rejected.match(r)) dispatch(sessionExpired());
               navigate("/login");
             }}
           >

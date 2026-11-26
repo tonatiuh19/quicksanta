@@ -20,8 +20,8 @@ Organizers confirm they have permission to invite each person and to share their
 
 ## 4. Plans, pricing and billing
 
-- **Free:** exchanges with up to 20 people.
-- **Pro:** **US$8.90 per month per workspace**, billed in advance and renewing automatically each month until cancelled. Pro allows up to 100 people per exchange.
+- **Free:** Secret Santa and White Elephant exchanges with up to 20 people.
+- **Pro:** **US$8.90 per month per workspace**, billed in advance and renewing automatically each month until cancelled. Pro allows up to 100 people per exchange and unlocks every service, including Wishlist Exchange, Book Swap, Cookie Swap and “Create your own” exchanges with reusable templates.
 - **Enterprise:** custom terms agreed in writing.
 - Payments are processed by Stripe. Prices may change; we will notify you at least 30 days before a change affects your next renewal.
 - Applicable taxes may be added where required.

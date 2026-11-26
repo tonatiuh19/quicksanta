@@ -139,7 +139,7 @@ describe("wizard + plans", () => {
     signIn(fake);
     const r = await request(app).post("/api/wizard/launch").set("Cookie", sessionCookie).send({ ...base, plan: "pro", participants: people(30) });
     expect(r.body).toMatchObject({ payment_required: true, invited: 0 });
-    expect(fake.find(/INSERT INTO events/)!.params.slice(5, 8)).toEqual(["pending_payment", "free", 1]);
+    expect(fake.find(/INSERT INTO events/)!.params.slice(11, 14)).toEqual(["pending_payment", "free", 1]);
   });
 
   it("a workspace that already has Pro launches big exchanges right away (no payment)", async () => {
@@ -148,7 +148,7 @@ describe("wizard + plans", () => {
     const r = await request(app).post("/api/wizard/launch").set("Cookie", sessionCookie).send({ ...base, participants: people(40) });
     expect(r.status).toBe(201);
     expect(r.body.payment_required).toBe(false);
-    expect(fake.find(/INSERT INTO events/)!.params[5]).toBe("open");
+    expect(fake.find(/INSERT INTO events/)!.params[11]).toBe("open");
   });
 
   it("past_due beyond grace counts as Free", async () => {
@@ -198,7 +198,7 @@ describe("subscription billing", () => {
     fakeBilling({ sub: sub({ status: "active" }) });
     fake.on(/FROM tenants WHERE id = \?/, [tenantRow({ stripe_customer_id: "cus_123456", stripe_subscription_id: "sub_123456" })]);
     fake.on(/SELECT id, plan, locale, stripe_subscription_id, subscription_status, past_due_since FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "free", stripe_subscription_id: "sub_123456" }]);
-    fake.on(/WHERE e.tenant_id = \? AND e.status = 'pending_payment'/, [{ id: 50, name: "Big", exchange_date: null, budget_min: null, budget_max: null, currency: "USD", invites_pending: 1, name_en: "Secret Santa", name_es: "Amigo", organizer: "Org" }]);
+    fake.on(/WHERE e.tenant_id = \? AND \(e.status = 'pending_payment'/, [{ id: 50, name: "Big", exchange_date: null, budget_min: null, budget_max: null, currency: "USD", invites_pending: 1, name_en: "Secret Santa", name_es: "Amigo", organizer: "Org" }]);
     fake.on(/status = 'invited' AND invite_token_hash IS NULL/, [{ id: 1, email: "a@example.com" }, { id: 2, email: "b@example.com" }]);
     const r = await request(app).post("/api/app/billing/sync").set("Cookie", sessionCookie);
     expect(r.body).toMatchObject({ status: "active", plan: "pro" });

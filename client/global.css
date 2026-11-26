@@ -1430,7 +1430,7 @@ form .qs-modal-actions {
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-.qs-choice > span:last-of-type {
+.qs-choice > .qs-choice-desc {
   font-size: 0.82rem;
   color: var(--qs-slate);
   line-height: 1.45;
@@ -3760,4 +3760,224 @@ form .qs-modal-actions {
     margin-left: 0;
     width: 100%;
   }
+}
+
+/* ── Pro services + "Create your own" ─────────────────────────────────── */
+.qs-choice {
+  position: relative;
+}
+.qs-pro-tag,
+.qs-choice > .qs-pro-tag {
+  position: absolute;
+  color: #fff !important;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.25);
+  top: 0.75rem;
+  right: 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(135deg, #dc2626, var(--qs-gold));
+}
+.qs-choice:not(.is-selected) .qs-pro-tag {
+  right: 0.75rem;
+}
+.qs-pro-tag.is-locked {
+  background: linear-gradient(135deg, #78350f, var(--qs-gold));
+}
+.qs-choice.is-locked:not(.is-selected) {
+  background: linear-gradient(180deg, #fff, #fffaf0);
+}
+.qs-choice.is-custom {
+  border-style: dashed;
+  border-color: #f2b8b8;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(253 230 138 / 0.35), transparent 50%),
+    linear-gradient(180deg, #fff, #fff7f7);
+}
+.qs-choice.is-custom .qs-choice-icon {
+  background: linear-gradient(135deg, #dc2626, var(--qs-gold));
+  color: #fff;
+  animation: qs-bob 2.6s ease-in-out infinite;
+}
+.qs-choice.is-custom.is-selected {
+  border-style: solid;
+}
+.qs-pro-note {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  color: #92400e;
+}
+.qs-templates {
+  display: grid;
+  gap: 0.5rem;
+}
+.qs-template-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  max-width: 100%;
+}
+.qs-template {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 8px 18px -10px rgb(0 0 0 / 0.5);
+}
+.qs-template-use {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
+  cursor: pointer;
+}
+.qs-template-del {
+  border: 0;
+  background: rgb(255 255 255 / 0.18);
+  color: inherit;
+  border-radius: 999px;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-right: 0.35rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.qs-icon-pick,
+.qs-color-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.qs-icon-pick button {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--qs-line);
+  background: #fff;
+  color: var(--qs-slate);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.qs-icon-pick button.is-on {
+  border-color: var(--qs-red);
+  color: var(--qs-red);
+  background: #fff7f7;
+  transform: scale(1.08);
+}
+.qs-color-pick button {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px var(--qs-line);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.qs-color-pick button.is-on {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 2px var(--qs-ink);
+}
+.qs-mode-pick {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.qs-mode {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  text-align: left;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  border: 1.5px solid var(--qs-line);
+  background: #fff;
+  color: var(--qs-slate);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.qs-mode strong {
+  color: var(--qs-ink);
+  font-size: 0.92rem;
+}
+.qs-mode svg {
+  color: var(--qs-red);
+}
+.qs-mode.is-on {
+  border-color: var(--qs-red);
+  background: #fff7f7;
+  box-shadow: 0 0 0 4px rgb(185 28 28 / 0.08);
+}
+.qs-ticket {
+  transition: background 0.4s ease;
+}
+.qs-ticket-rules {
+  font-style: italic;
+  opacity: 0.9;
+}
+.qs-theme-rules {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  margin: 0 0 1rem;
+}
+.qs-reveal-waiting.is-countdown {
+  background: linear-gradient(140deg, #fff7ed, #fef2f2);
+  border-color: #fed7aa;
+  color: var(--qs-red-deep);
+}
+@media (max-width: 520px) {
+  .qs-mode-pick {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.qs-service-card {
+  position: relative;
+}
+.qs-service-card .qs-pro-tag {
+  right: 0.9rem;
+  top: 0.9rem;
+}
+.qs-service-card.is-custom {
+  border-style: dashed;
+  border-color: #f2b8b8;
+  background: radial-gradient(circle at 100% 0%, rgb(253 230 138 / 0.4), transparent 50%), #fff;
+}
+.qs-invite-rules {
+  font-style: italic;
+  opacity: 0.92;
+  margin: 0.4rem 0;
+}
+/* Keyboard focus is gold (selection is red) so they're never confused. */
+.qs-choice:focus,
+.qs-mode:focus,
+.qs-reason:focus {
+  outline: none;
+}
+.qs-choice:focus-visible,
+.qs-mode:focus-visible,
+.qs-reason:focus-visible,
+.qs-icon-pick button:focus-visible,
+.qs-color-pick button:focus-visible {
+  outline: 2px solid var(--qs-gold);
+  outline-offset: 2px;
 }

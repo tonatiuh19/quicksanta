@@ -14,7 +14,7 @@ export default function Events() {
   const es = i18n.language.startsWith("es");
   const columns: DataGridColumn<EventRow>[] = [
     { key: "name", label: t("events.col.name"), sortable: true, sticky: true, render: (e) => <strong>{e.name}</strong> },
-    { key: "event_type_name", label: t("events.col.type"), render: (e) => t(`services.${e.event_type_slug}.name`, { defaultValue: e.event_type_name }) },
+    { key: "event_type_name", label: t("events.col.type"), render: (e) => e.custom?.name ?? t(`services.${e.event_type_slug}.name`, { defaultValue: e.event_type_name }) },
     { key: "status", label: t("events.col.status"), sortable: true, render: (e) => <StatusBadge value={e.status} /> },
     { key: "exchange_date", label: t("events.col.date"), sortable: true, render: (e) => formatDate(e.exchange_date, i18n.language) },
     { key: "participants", label: t("events.col.people"), render: (e) => `${e.joined_count}/${e.participant_count}` },

@@ -2,7 +2,7 @@
  * Redux-bound server-side grid: toolbar (search + whitelisted filters) + DataGrid (sort + pagination).
  * Every list in the app uses this; all filtering/sorting/paging runs in SQL.
  */
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { DataGrid, type DataGridColumn } from "@/components/ui/data-grid";
 import { ErrorNote, FilterSelect, SearchBox } from "@/components/kit";
@@ -42,6 +42,15 @@ export default function ServerGrid<T>({
   const g = grids[grid];
   const state = useAppSelector((s) => s[grid]) as unknown as { items: T[]; pagination: any; query: any; loading: boolean; error: string | null };
   const { query } = state;
+
+  // Another exchange (pathArg) → drop the previous one's rows, page and search before fetching.
+  const lastArg = useRef(pathArg);
+  useEffect(() => {
+    if (lastArg.current !== pathArg) {
+      lastArg.current = pathArg;
+      dispatch(g.actions.reset());
+    }
+  }, [pathArg, dispatch, g]);
 
   useEffect(() => {
     void dispatch(g.fetch({ query, pathArg }) as any);

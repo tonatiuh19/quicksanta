@@ -7,7 +7,7 @@
  * - "update":    saves a new card for renewals (SetupIntent) and retries a failed renewal.
  * Card data goes straight to Stripe; our API only creates/syncs (appSlice thunks).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { loadStripe, type StripeElementStyle } from "@stripe/stripe-js";
 import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
@@ -63,6 +63,8 @@ function CardForm({ mode = "subscribe", amountCents, currency, label, payerName,
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "paying" | "done">("idle");
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (doneTimer.current && clearTimeout(doneTimer.current)), []);
   const ready = Boolean(stripe && elements) && done.number && done.expiry && done.cvc;
   const price = formatMoney(amountCents, currency, i18n.language.startsWith("es") ? "es-MX" : "en-US");
   const isUpdate = mode === "update";
@@ -105,7 +107,7 @@ function CardForm({ mode = "subscribe", amountCents, currency, label, payerName,
           .catch(() => undefined);
       }
       setPhase("done");
-      setTimeout(onDone, 1300);
+      doneTimer.current = setTimeout(onDone, 1300);
     } catch (e) {
       setPhase("idle");
       setError(e instanceof Error ? e.message : String(e));
@@ -213,6 +215,7 @@ export default function CheckoutCard(props: CheckoutProps) {
   if (!PUBLISHABLE_KEY) return <div className="qs-error">{t("errors.paymentsUnavailable")}</div>;
   return (
     <Elements
+      key={i18n.language?.startsWith("es") ? "es" : "en"}
       stripe={stripe}
       options={{ locale: i18n.language?.startsWith("es") ? "es" : "en", fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&display=swap" }] }}
     >

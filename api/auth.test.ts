@@ -73,7 +73,7 @@ describe("POST /api/auth/otp/verify", () => {
 
   it("fails if the atomic consume loses a race", async () => {
     fake.on(/FROM otp_codes WHERE email/, otpRow());
-    fake.on(/UPDATE otp_codes SET consumed_at = UTC_TIMESTAMP\(\) WHERE id = \? AND consumed_at IS NULL/, { affectedRows: 0, insertId: 0 });
+    fake.on(/UPDATE otp_codes SET consumed_at = UTC_TIMESTAMP\(\), attempts = GREATEST/, { affectedRows: 0, insertId: 0 });
     const r = await request(app).post("/api/auth/otp/verify").send({ email: "a@example.com", code: "123456" });
     expect(r.status).toBe(400);
     expect(fake.find(/INSERT INTO user_sessions/)).toBeUndefined();

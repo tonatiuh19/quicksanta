@@ -12,7 +12,7 @@ export default function AdminEvents() {
   const columns: DataGridColumn<AdminEventRow>[] = [
     { key: "name", label: t("events.col.name"), sortable: true, sticky: true, render: (e) => <strong>{e.name}</strong> },
     { key: "tenant", label: t("admin.events.tenant"), sortable: true, render: (e) => e.tenant_name },
-    { key: "type", label: t("events.col.type"), render: (e) => t(`services.${e.event_type_slug}.name`, { defaultValue: e.event_type_name }) },
+    { key: "type", label: t("events.col.type"), render: (e) => e.custom?.name ?? t(`services.${e.event_type_slug}.name`, { defaultValue: e.event_type_name }) },
     { key: "status", label: t("events.col.status"), sortable: true, render: (e) => <StatusBadge value={e.status} /> },
     { key: "people", label: t("events.col.people"), render: (e) => `${e.joined_count}/${e.participant_count}` },
     { key: "budget", label: t("events.col.budget"), render: (e) => formatBudget(e.budget_min, e.budget_max, e.currency) },

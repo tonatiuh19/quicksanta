@@ -288,3 +288,67 @@ test("legal pages: privacy + terms render (EN/ES) and are linked from login", as
   await expect(page.getByRole("heading", { level: 1, name: "Aviso de Privacidad" })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/09-privacy-es.png` });
 });
+
+test("Free workspace: Pro services show a lock; picking one routes the launch through the subscription", async ({ page, context }) => {
+  const free = await makeUser("freeorg");
+  await signInAs(context, free);
+  await page.goto("/start");
+  const book = page.getByRole("radio", { name: /book swap/i });
+  await expect(book.locator(".qs-pro-tag.is-locked")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /^secret santa/i }).locator(".qs-pro-tag")).toHaveCount(0);
+  await book.click();
+  await expect(page.getByText(/This is a Pro service/)).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${SHOTS}/10-pro-badges.png` });
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.getByLabel(/exchange name/i).fill("PW Book Club");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.getByRole("button", { name: /paste a list/i }).click();
+  await page.getByRole("textbox", { name: /paste a list/i }).fill(Array.from({ length: 3 }, (_, i) => `Reader ${i} <${mail(`reader${i}`)}>`).join("\n"));
+  await page.getByRole("button", { name: /add all/i }).click();
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.getByRole("button", { name: /continue/i }).click(); // rules
+  await expect(page.getByText(/is a Pro service: your workspace will subscribe at launch/)).toBeVisible();
+  await expect(page.getByRole("radio", { name: /free/i })).toBeDisabled();
+  await page.getByRole("button", { name: /launch & subscribe/i }).click();
+  await expect(page.getByText("Unlock Pro for your workspace")).toBeVisible();
+});
+
+test("Pro workspace: Create your own (design, live ticket, no-draw), save template, reuse it", async ({ page, context }) => {
+  await signInAs(context, organizer); // Pro since the banner test
+  await page.goto("/start");
+  const custom = page.getByRole("radio", { name: /create your own/i });
+  await expect(custom.locator(".qs-pro-tag.is-locked")).toHaveCount(0);
+  await custom.click();
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.getByLabel(/exchange style name/i).fill("PW Ugly Sweater Swap");
+  await page.getByRole("radio", { name: "snowflake" }).click();
+  await page.getByRole("radio", { name: "Green" }).click();
+  await page.getByRole("radio", { name: /no draw/i }).click();
+  await page.getByLabel(/theme or house rules/i).fill("Must be knitted");
+  await page.getByText(/save this design as a template/i).click();
+  await expect(page.locator(".qs-ticket")).toContainText("PW Ugly Sweater Swap");
+  await page.screenshot({ path: `${SHOTS}/11-custom-design.png`, fullPage: true });
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.getByLabel(/exchange name/i).fill("PW Sweater Night");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Knitter");
+  await page.getByLabel("Email", { exact: true }).fill(mail("knitter"));
+  await page.getByRole("button", { name: /^add$/i }).click();
+  await page.getByRole("button", { name: /continue/i }).click();
+  await expect(page.getByText(/Covered by your Pro plan/)).toBeVisible(); // no rules step, no charge
+  await page.getByText("Email invitations now").click();
+  await page.getByRole("button", { name: /launch exchange/i }).click();
+  await expect(page.getByText(/your exchange is live/i)).toBeVisible();
+  const [ev] = (await pool.query("SELECT custom_name, match_mode, status FROM events WHERE name = 'PW Sweater Night' ORDER BY id DESC LIMIT 1")) as any;
+  expect(ev[0]).toMatchObject({ custom_name: "PW Ugly Sweater Swap", match_mode: "none", status: "open" });
+
+  // Template is offered next time and pre-fills the design
+  await page.getByRole("button", { name: /go to dashboard/i }).click();
+  await page.goto("/start");
+  const tpl = page.locator(".qs-template").filter({ hasText: "PW Ugly Sweater Swap" });
+  await expect(tpl).toBeVisible();
+  await tpl.locator(".qs-template-use").click();
+  await expect(page.getByLabel(/exchange style name/i)).toHaveValue("PW Ugly Sweater Swap");
+  await expect(page.getByRole("radio", { name: /no draw/i })).toHaveAttribute("aria-checked", "true");
+});

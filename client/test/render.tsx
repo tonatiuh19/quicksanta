@@ -55,7 +55,7 @@ export function user(over: Partial<SessionUser> = {}): SessionUser {
     full_name: "Alex Gomez",
     locale: "en",
     platform_role: null,
-    memberships: [{ tenant_id: 7, tenant_public_id: "T7", tenant_name: "Gomez Family", tenant_slug: "gomez", tenant_status: "active", role: "organizer" }],
+    memberships: [{ tenant_id: 7, tenant_public_id: "T7", tenant_name: "Gomez Family", tenant_slug: "gomez", tenant_status: "active", role: "organizer", tenant_plan: "free" }],
     active_tenant_id: 7,
     ...over,
   };

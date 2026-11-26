@@ -20,8 +20,8 @@ El organizador confirma que tiene permiso para invitar a cada persona y comparti
 
 ## 4. Planes, precios y cobros
 
-- **Gratis:** intercambios de hasta 20 personas.
-- **Pro:** **US$8.90 al mes por espacio**, cobrado por adelantado y con renovación automática mensual hasta que lo canceles. Pro permite hasta 100 personas por intercambio.
+- **Gratis:** intercambios de Amigo secreto y Elefante blanco de hasta 20 personas.
+- **Pro:** **US$8.90 al mes por espacio**, cobrado por adelantado y con renovación automática mensual hasta que lo canceles. Pro permite hasta 100 personas por intercambio y desbloquea todos los servicios, incluidos Intercambio por lista de deseos, de libros, de galletas y “Crea el tuyo” con plantillas reutilizables.
 - **Empresarial:** condiciones acordadas por escrito.
 - Los pagos los procesa Stripe. Los precios pueden cambiar; te avisaremos con al menos 30 días de anticipación antes de que un cambio afecte tu siguiente renovación.
 - Se podrán agregar los impuestos aplicables cuando corresponda.

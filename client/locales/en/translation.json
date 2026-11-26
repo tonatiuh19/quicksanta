@@ -91,6 +91,10 @@
     "cookie_swap": {
       "name": "Cookie Swap",
       "desc": "Bake, bring, share. Track who brings what."
+    },
+    "custom": {
+      "name": "Create your own",
+      "desc": "Design a unique exchange: name, theme, rules, draw or no draw, reveal style."
     }
   },
   "landing": {
@@ -192,8 +196,8 @@
         "per": "forever",
         "desc": "For families and friend groups.",
         "features": [
+          "Secret Santa & White Elephant",
           "Up to 20 people per exchange",
-          "Up to 10 active exchanges",
           "Exclusion rules & wishlists",
           "Email invites & reveal"
         ],
@@ -207,9 +211,9 @@
         "features": [
           "Everything in Free",
           "Up to 100 people per exchange",
-          "All exchanges in your workspace",
-          "Secure card billing, cancel anytime",
-          "Priority support"
+          "All services: Wishlist, Book & Cookie swaps",
+          "✨ Create your own exchanges + templates",
+          "Cancel anytime"
         ],
         "cta": "Start with Pro"
       },
@@ -256,7 +260,8 @@
     "resend": "Resend code",
     "resendIn": "Resend in {{s}}s",
     "newHere": "New here?",
-    "startWizard": "Start an exchange"
+    "startWizard": "Start an exchange",
+    "emailPh": "you@example.com"
   },
   "shell": {
     "menu": "Menu",
@@ -393,7 +398,11 @@
     "waitingBody": "We'll email you as soon as the organizer runs it.",
     "myWishlist": "My wishlist",
     "wishlistHint": "Your Secret Santa will see this.",
-    "wishlistPh": "Sizes, favorite colors, books, things you'd love…"
+    "wishlistPh": "Sizes, favorite colors, books, things you'd love…",
+    "revealOn": "Matches are revealed on {{date}}",
+    "revealTogether": "The draw is done! Everyone discovers their match together on the exchange day.",
+    "noDrawTitle": "No secret draw for this one",
+    "noDrawBody": "Everyone brings a gift. Check the theme and see you at the party!"
   },
   "join": {
     "hello": "Hi {{name}}! You're invited 🎁",
@@ -415,11 +424,13 @@
       "people": "People",
       "rules": "Rules",
       "account": "Account",
-      "review": "Launch"
+      "review": "Launch",
+      "design": "Design"
     },
     "service": {
       "title": "What are we celebrating?",
-      "sub": "Choose the kind of exchange. You can run as many as you like."
+      "sub": "Choose the kind of exchange. You can run as many as you like.",
+      "proNote": "This is a Pro service ({{price}}/month). You can set it up now and subscribe when you launch."
     },
     "details": {
       "title": "The details",
@@ -468,11 +479,14 @@
     "review": {
       "title": "Ready to launch 🚀",
       "sub": "Double-check, then send the invitations.",
-      "people": "{{count}} people",
       "rules": "{{count}} rule(s)",
       "sendInvites": "Email invitations now",
       "launch": "Launch exchange",
-      "launching": "Launching…"
+      "launching": "Launching…",
+      "people_one": "{{count}} person",
+      "people_other": "{{count}} people",
+      "proService": "“{{name}}” is a Pro service: your workspace will subscribe at launch.",
+      "coveredByPro": "Covered by your Pro plan. No extra charge."
     },
     "done": {
       "title": "Your exchange is live!",
@@ -485,7 +499,53 @@
       "name": "Give your exchange a name (2+ characters).",
       "organizerName": "Tell us your name.",
       "minPeople": "Add at least {{min}} people in total.",
-      "personName": "Add the person's name."
+      "personName": "Add the person's name.",
+      "customName": "Give your exchange style a name (2+ characters)."
+    },
+    "design": {
+      "title": "Design your exchange",
+      "sub": "Make it yours: give it a name, a look and its own rules.",
+      "name": "Exchange style name",
+      "namePh": "Ugly Sweater Swap",
+      "icon": "Icon",
+      "color": "Color",
+      "match": "How are gifts matched?",
+      "modes": {
+        "draw": {
+          "title": "Secret draw",
+          "body": "Everyone gets one secret person to gift."
+        },
+        "none": {
+          "title": "No draw",
+          "body": "Everyone brings a gift; swap or share at the party."
+        }
+      },
+      "reveal": "When do people see their match?",
+      "reveals": {
+        "private": {
+          "title": "Right after the draw",
+          "body": "Each person sees their match privately."
+        },
+        "together": {
+          "title": "Together on the day",
+          "body": "Matches stay hidden until the exchange date."
+        }
+      },
+      "rules": "Theme or house rules",
+      "rulesPh": "Must be handmade · Under 10 minutes to wrap · Bring something green",
+      "saveTemplate": "Save this design as a template for next time",
+      "yourTemplates": "Your designs",
+      "colors": {
+        "red": "Red",
+        "green": "Green",
+        "gold": "Gold",
+        "blue": "Blue",
+        "purple": "Purple",
+        "pink": "Pink",
+        "teal": "Teal",
+        "slate": "Slate"
+      },
+      "templateOverwrite": "A design named “{{name}}” already exists and will be updated."
     }
   },
   "admin": {
@@ -585,7 +645,10 @@
       "noDraw": "No draw",
       "usage": "{{n}} exchanges",
       "icon": "Icon",
-      "order": "Sort order"
+      "order": "Sort order",
+      "proOnly": "Pro only",
+      "free": "Free",
+      "slug": "Slug (id)"
     },
     "settings": {
       "version": "Production version {{v}}",
@@ -651,7 +714,9 @@
     "offerUsed": "This offer was already used.",
     "confirmNameMismatch": "The name doesn't match your workspace.",
     "cardNotSaved": "We couldn't save that card.",
-    "retryFailed": "Card saved, but the retry failed. Try another card."
+    "retryFailed": "Card saved, but the retry failed. Try another card.",
+    "customIsPro": "“Create your own” always requires Pro.",
+    "cronNotConfigured": "Scheduled job not configured."
   },
   "validation": {
     "invalid": "Please check the highlighted fields.",
@@ -662,7 +727,9 @@
     "eventType": "Pick a valid service.",
     "minParticipants": "You need at least {{min}} people.",
     "exclusion": "That rule isn't valid.",
-    "drawImpossible": "These rules make a fair draw impossible. Remove a rule or add people."
+    "drawImpossible": "These rules make a fair draw impossible. Remove a rule or add people.",
+    "customDesign": "Design your exchange first.",
+    "revealNeedsDate": "“Reveal together” needs an exchange date."
   },
   "checkout": {
     "kicker": "Pro exchange",

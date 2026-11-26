@@ -50,3 +50,9 @@ coverage
 # Playwright
 test-results/
 playwright-report/
+
+# Backups / dumps never belong in the repo
+*.tgz
+*.bak
+*.dump
+*.sql.gz

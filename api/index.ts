@@ -25,6 +25,7 @@ import { z } from "zod";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type {
   AdminEventRow,
+  ExchangeTemplate,
   BillingOverview,
   AdminTenantRow,
   AdminUserRow,
@@ -425,7 +426,8 @@ async function sendEmail(m: EmailMsg): Promise<{ ok: boolean; dryRun: boolean }>
     status = "failed";
     error = (e as Error).message?.slice(0, 500) ?? "error";
   }
-  db.exec("INSERT INTO email_log (tenant_id, to_email, template, status, provider_id, error) VALUES (?, ?, ?, ?, ?, ?)", [
+  // Awaited: serverless functions freeze after the response, dropping un-awaited writes.
+  await db.exec("INSERT INTO email_log (tenant_id, to_email, template, status, provider_id, error) VALUES (?, ?, ?, ?, ?, ?)", [
     m.tenantId ?? null,
     m.to,
     m.template,
@@ -465,23 +467,30 @@ export function tplOtp(lang: Lang, code: string) {
   return { subject: `${code} · ${title}`, html, text: `${title}: ${code}\n${p}` };
 }
 
-export function tplInvite(lang: Lang, o: { organizer: string; eventName: string; typeName: string; date: string | null; budget: string | null; link: string }) {
+export function tplInvite(lang: Lang, o: { organizer: string; eventName: string; typeName: string; date: string | null; budget: string | null; themeRules?: string | null; link: string }) {
   const es = lang === "es";
   const title = es ? `${o.organizer} te invitó a "${o.eventName}"` : `${o.organizer} invited you to "${o.eventName}"`;
   const lines = [
     `<strong>${esc(o.typeName)}</strong>`,
     o.date ? `${es ? "Fecha" : "Date"}: ${esc(o.date)}` : "",
     o.budget ? `${es ? "Presupuesto" : "Budget"}: ${esc(o.budget)}` : "",
+    o.themeRules ? `${es ? "Reglas" : "House rules"}: ${esc(o.themeRules)}` : "",
   ].filter(Boolean);
   const html = emailLayout(lang, title, `<p style="margin:0;line-height:1.8">${lines.join("<br>")}</p>`, { href: o.link, label: es ? "Unirme" : "Join the exchange" });
   return { subject: title, html, text: `${title}\n${o.link}` };
 }
 
-export function tplAssignment(lang: Lang, o: { eventName: string; link: string }) {
+export function tplAssignment(lang: Lang, o: { eventName: string; link: string; revealOn?: string | null }) {
   const es = lang === "es";
   const title = es ? `¡El sorteo de "${o.eventName}" está listo!` : `The draw for "${o.eventName}" is ready!`;
-  const p = es ? "Entra para descubrir a quién le regalas. Es secreto 🤫" : "Sign in to discover who you're gifting. Keep it secret 🤫";
-  const html = emailLayout(lang, title, `<p style="margin:0;line-height:1.6">${p}</p>`, { href: o.link, label: es ? "Ver mi asignación" : "Reveal my match" });
+  const p = o.revealOn
+    ? es
+      ? `Ya tienes asignación, pero se revela a todos juntos el ${esc(o.revealOn)}. ¡Paciencia! 🎁`
+      : `Your match is set, and everyone finds out together on ${esc(o.revealOn)}. Stay tuned! 🎁`
+    : es
+      ? "Entra para descubrir a quién le regalas. Es secreto 🤫"
+      : "Sign in to discover who you're gifting. Keep it secret 🤫";
+  const html = emailLayout(lang, title, `<p style="margin:0;line-height:1.6">${p}</p>`, { href: o.link, label: o.revealOn ? (es ? "Ver el intercambio" : "View the exchange") : es ? "Ver mi asignación" : "Reveal my match" });
   return { subject: title, html, text: `${title}\n${p}\n${o.link}` };
 }
 
@@ -596,13 +605,19 @@ type TenantCtx = { tenant_id: number; role: TenantRole; tenant_name: string };
 
 async function loadMemberships(userId: number): Promise<Membership[]> {
   const rows = await db.query(
-    `SELECT t.id AS tenant_id, t.public_id AS tenant_public_id, t.name AS tenant_name, t.slug AS tenant_slug, t.status AS tenant_status, m.role
+    `SELECT t.id AS tenant_id, t.public_id AS tenant_public_id, t.name AS tenant_name, t.slug AS tenant_slug, t.status AS tenant_status, m.role,
+            t.plan AS plan_raw, t.subscription_status, t.past_due_since, t.current_period_end AS period_end
        FROM tenant_members m JOIN tenants t ON t.id = m.tenant_id
       WHERE m.user_id = ? AND m.status = 'active' AND t.status <> 'archived'
       ORDER BY FIELD(m.role, 'organizer', 'participant'), t.name`,
     [userId],
   );
-  return rows.map((r) => ({ ...r, tenant_id: Number(r.tenant_id) }));
+  const grace = rows.length ? (await pricingInfo()).grace_days : 3;
+  return rows.map(({ plan_raw, subscription_status, past_due_since, period_end, ...r }) => ({
+    ...r,
+    tenant_id: Number(r.tenant_id),
+    tenant_plan: effectiveTenantPlan({ plan: plan_raw, subscription_status, past_due_since, current_period_end: period_end }, grace),
+  }));
 }
 
 async function loadSessionUser(req: Request): Promise<Authed | null> {
@@ -658,7 +673,7 @@ function requirePlatform(perm: PlatformPerm) {
 }
 
 /** Resolves the tenant from `X-Tenant-Id` (or the session's active tenant) and checks the member's role. */
-function requireTenant(perm: TenantPerm) {
+function requireTenant(perm: TenantPerm, opts: { allowSuspended?: boolean } = {}) {
   const auth = requireAuth();
   return (req: Request, res: Response, next: NextFunction) =>
     auth(req, res, (err?: unknown) => {
@@ -668,7 +683,8 @@ function requireTenant(perm: TenantPerm) {
       const tenantId = Number.isInteger(hdr) && hdr > 0 ? hdr : u.active_tenant_id;
       const m = u.memberships.find((x) => x.tenant_id === tenantId);
       if (!m) return void res.status(403).json({ error: "errors.noTenantAccess" });
-      if (m.tenant_status !== "active") return void res.status(423).json({ error: "errors.tenantSuspended" });
+      // Suspended workspaces can still see invoices, fix their card or cancel (never trap a paying customer).
+      if (m.tenant_status !== "active" && !(opts.allowSuspended && m.tenant_status === "suspended")) return void res.status(423).json({ error: "errors.tenantSuspended" });
       if (!tenantCan(m.role, perm)) return void res.status(403).json({ error: "errors.forbidden" });
       res.locals.tenant = { tenant_id: m.tenant_id, role: m.role, tenant_name: m.tenant_name } satisfies TenantCtx;
       next();
@@ -954,27 +970,31 @@ const toSqlDate = (unix: number | null) => (unix ? new Date(unix * 1000).toISOSt
 /** Opens exchanges that were waiting for Pro and sends their queued invitations (idempotent). */
 async function openPendingExchanges(req: Request | null, tenantId: number, lang: Lang) {
   const pending = await db.query(
-    `SELECT e.id, e.name, e.exchange_date, e.budget_min, e.budget_max, e.currency, e.invites_pending, et.name_en, et.name_es, u.full_name AS organizer
+    `SELECT e.id, e.name, e.exchange_date, e.budget_min, e.budget_max, e.currency, e.invites_pending, e.custom_name, e.theme_rules, et.name_en, et.name_es, u.full_name AS organizer
        FROM events e JOIN event_types et ON et.id = e.event_type_id LEFT JOIN users u ON u.id = e.created_by
-      WHERE e.tenant_id = ? AND e.status = 'pending_payment'`,
+      WHERE e.tenant_id = ? AND (e.status = 'pending_payment' OR (e.status = 'open' AND e.invites_pending = 1))`,
     [tenantId],
   );
   for (const ev of pending) {
-    const r = await db.exec("UPDATE events SET status = 'open' WHERE id = ? AND tenant_id = ? AND status = 'pending_payment'", [ev.id, tenantId]);
-    if (r.affectedRows !== 1 || !toBool(ev.invites_pending) || !req) continue;
+    // Open first (idempotent); queued invites are retried on every sync/webhook until all are sent.
+    await db.exec("UPDATE events SET status = 'open' WHERE id = ? AND tenant_id = ? AND status = 'pending_payment'", [ev.id, tenantId]);
+    if (!toBool(ev.invites_pending) || !req) continue;
     const people = await db.query("SELECT id, email FROM participants WHERE event_id = ? AND tenant_id = ? AND status = 'invited' AND invite_token_hash IS NULL", [ev.id, tenantId]);
-    await inBatches(people, 8, (p) =>
-      sendInvite(req, db, {
+    let failedSends = 0;
+    await inBatches(people, 8, async (p) => {
+      const ok = await sendInvite(req, db, {
         tenantId,
         participantId: Number(p.id),
         email: p.email,
         organizer: ev.organizer || "QuickSanta",
         event: { name: ev.name, exchange_date: ev.exchange_date, budget_min: toNum(ev.budget_min), budget_max: toNum(ev.budget_max), currency: ev.currency },
-        typeName: lang === "es" ? ev.name_es : ev.name_en,
+        typeName: serviceLabel(ev, lang),
+        themeRules: ev.theme_rules ?? null,
         lang,
-      }),
-    );
-    await db.exec("UPDATE events SET invites_pending = 0 WHERE id = ?", [ev.id]);
+      });
+      if (!ok) failedSends++;
+    });
+    if (!failedSends) await db.exec("UPDATE events SET invites_pending = 0 WHERE id = ?", [ev.id]);
   }
 }
 
@@ -1029,15 +1049,24 @@ function mapEventType(r: any): EventType {
     description_es: r.description_es,
     icon: r.icon,
     uses_draw: toBool(r.uses_draw),
+    requires_pro: toBool(r.requires_pro),
     is_active: toBool(r.is_active),
     sort_order: Number(r.sort_order ?? 0),
   };
 }
 
-const EVENT_SELECT = `e.id, e.public_id, e.tenant_id, et.slug AS event_type_slug, et.name_en AS event_type_name, e.name, e.description, e.status,
+const EVENT_SELECT = `e.id, e.public_id, e.tenant_id, et.slug AS event_type_slug, et.name_en AS event_type_name, et.name_es AS event_type_name_es, e.name, e.description, e.status,
   e.plan, e.paid_at, e.budget_min, e.budget_max, e.currency, e.exchange_date, e.rsvp_deadline, e.location, e.allow_wishlists, e.drawn_at, e.created_at,
+  e.custom_name, e.custom_icon, e.custom_color, e.match_mode, e.theme_rules, e.reveal_mode, et.requires_pro,
+  IF(e.match_mode IS NULL, et.uses_draw, e.match_mode = 'draw') AS uses_draw,
   (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.status IN ('invited','joined')) AS participant_count,
   (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.status = 'joined') AS joined_count`;
+
+/** Service label for emails/join page: custom name, else the catalog name in the right language. */
+function serviceLabel(r: { custom_name?: string | null; event_type_name?: string; event_type_name_es?: string; name_en?: string; name_es?: string }, lang: Lang): string {
+  if (r.custom_name) return r.custom_name;
+  return lang === "es" ? r.event_type_name_es ?? r.name_es ?? r.event_type_name ?? "" : r.event_type_name ?? r.name_en ?? "";
+}
 
 function mapEvent(r: any): EventRow {
   return {
@@ -1062,6 +1091,10 @@ function mapEvent(r: any): EventRow {
     joined_count: Number(r.joined_count ?? 0),
     drawn_at: r.drawn_at ?? null,
     created_at: r.created_at,
+    custom: r.custom_name ? { name: r.custom_name, icon: r.custom_icon ?? "sparkles", color: r.custom_color ?? "red" } : null,
+    uses_draw: toBool(r.uses_draw),
+    theme_rules: r.theme_rules ?? null,
+    reveal_mode: r.reveal_mode === "together" ? "together" : "private",
   };
 }
 
@@ -1090,7 +1123,7 @@ function budgetLabel(min: number | null, max: number | null, currency: string): 
 async function sendInvite(
   req: Request,
   dbx: Db,
-  o: { tenantId: number; participantId: number; email: string; organizer: string; event: { name: string; exchange_date: string | null; budget_min: number | null; budget_max: number | null; currency: string }; typeName: string; lang?: Lang },
+  o: { tenantId: number; participantId: number; email: string; organizer: string; event: { name: string; exchange_date: string | null; budget_min: number | null; budget_max: number | null; currency: string; theme_rules?: string | null }; typeName: string; themeRules?: string | null; lang?: Lang },
 ) {
   const token = crypto.randomBytes(24).toString("base64url");
   await dbx.exec("UPDATE participants SET invite_token_hash = ?, invited_at = UTC_TIMESTAMP() WHERE id = ? AND tenant_id = ?", [sha256(token), o.participantId, o.tenantId]);
@@ -1100,15 +1133,18 @@ async function sendInvite(
     typeName: o.typeName,
     date: o.event.exchange_date,
     budget: budgetLabel(o.event.budget_min, o.event.budget_max, o.event.currency),
+    themeRules: o.themeRules ?? o.event.theme_rules ?? null,
     link: `${appUrl()}/join/${token}`,
   });
   const r = await sendEmail({ to: o.email, ...tpl, template: "invite", tenantId: o.tenantId });
+  // Not delivered: drop the token again so queued sends retry this person.
+  if (!r.ok) await dbx.exec("UPDATE participants SET invite_token_hash = NULL WHERE id = ? AND tenant_id = ? AND invite_token_hash = ?", [o.participantId, o.tenantId, sha256(token)]).catch(() => undefined);
   return r.ok;
 }
 
 async function loadTenantEvent(tenantId: number, eventId: number) {
   const rows = await db.query(
-    `SELECT ${EVENT_SELECT}, et.uses_draw, t.max_participants_per_event, t.plan AS tenant_plan_raw, t.subscription_status, t.current_period_end, t.past_due_since FROM events e
+    `SELECT ${EVENT_SELECT}, t.max_participants_per_event, t.plan AS tenant_plan_raw, t.subscription_status, t.current_period_end, t.past_due_since FROM events e
        JOIN event_types et ON et.id = e.event_type_id JOIN tenants t ON t.id = e.tenant_id
       WHERE e.id = ? AND e.tenant_id = ? LIMIT 1`,
     [eventId, tenantId],
@@ -1146,6 +1182,7 @@ function registerPublicRoutes(app: express.Express) {
         throw new HttpError(400, "errors.badSignature");
       }
       const obj = evt.data.object ?? {};
+      try {
       if (evt.type.startsWith("customer.subscription.")) {
         // Re-read from Stripe: event payloads can arrive out of order.
         await syncTenantSubscription(req, await billingApi().getSubscription(String(obj.id)));
@@ -1153,6 +1190,11 @@ function registerPublicRoutes(app: express.Express) {
         const inv = await billingApi().getInvoice(String(obj.id));
         await recordInvoice(inv, evt.type === "invoice.paid" ? "succeeded" : "failed");
         if (inv.subscription) await syncTenantSubscription(req, await billingApi().getSubscription(inv.subscription));
+      }
+      } catch (e: any) {
+        // Objects deleted in Stripe (or from another app on a shared account) are acknowledged, not retried forever.
+        if (e?.code === "resource_missing" || e?.statusCode === 404) return void res.json({ received: true, ignored: true });
+        throw e;
       }
       res.json({ received: true });
     }),
@@ -1209,13 +1251,15 @@ function registerAuthRoutes(app: express.Express) {
       // Across codes: too many wrong guesses for this email in 15 min locks it (new codes don't reset it).
       const fails = await db.query<{ n: number }>("SELECT COALESCE(SUM(attempts), 0) AS n FROM otp_codes WHERE email = ? AND created_at > UTC_TIMESTAMP() - INTERVAL 15 MINUTE", [body.email]);
       if (Number(fails[0]?.n ?? 0) >= OTP_MAX_ATTEMPTS * 2) throw new HttpError(429, "errors.authLocked");
+      // Reserve the attempt atomically BEFORE comparing, so parallel guesses can't all see "0 attempts".
+      const reserved = await db.exec("UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ? AND attempts < ? AND consumed_at IS NULL", [otp.id, OTP_MAX_ATTEMPTS]);
+      if (reserved.affectedRows !== 1) throw new HttpError(429, "errors.authLocked");
       const hash = sha256(body.code);
       if (hash !== otp.code_hash) {
-        await db.exec("UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?", [otp.id]);
         throw new HttpError(400, "errors.otpInvalid", { attempts_left: Math.max(0, OTP_MAX_ATTEMPTS - Number(otp.attempts) - 1) });
       }
-      // Atomic consume: two parallel verifies can't both mint a session.
-      const consumed = await db.exec("UPDATE otp_codes SET consumed_at = UTC_TIMESTAMP() WHERE id = ? AND consumed_at IS NULL AND code_hash = ?", [otp.id, hash]);
+      // Atomic consume: two parallel verifies can't both mint a session (the right guess doesn't count as a failure).
+      const consumed = await db.exec("UPDATE otp_codes SET consumed_at = UTC_TIMESTAMP(), attempts = GREATEST(attempts - 1, 0) WHERE id = ? AND consumed_at IS NULL AND code_hash = ?", [otp.id, hash]);
       if (consumed.affectedRows !== 1) throw new HttpError(400, "errors.otpInvalid");
 
       let users = await db.query("SELECT id, status FROM users WHERE email = ? LIMIT 1", [body.email]);
@@ -1282,6 +1326,9 @@ function registerAuthRoutes(app: express.Express) {
   );
 }
 
+export const CUSTOM_ICONS = ["sparkles", "gift", "heart", "star", "tree", "music", "coffee", "palette", "book", "cookie", "party", "snowflake"] as const;
+export const CUSTOM_COLORS = ["red", "green", "gold", "blue", "purple", "pink", "teal", "slate"] as const;
+
 const wizardSchema = z.object({
   eventTypeSlug: z.string().min(1).max(40),
   name: z.string().trim().min(2).max(140),
@@ -1300,6 +1347,17 @@ const wizardSchema = z.object({
   sendInvites: z.boolean().default(true),
   tenantName: z.string().trim().max(120).optional(),
   plan: z.enum(["free", "pro"]).default("free"),
+  custom: z
+    .object({
+      name: z.string().trim().min(2).max(80),
+      icon: z.enum(CUSTOM_ICONS),
+      color: z.enum(CUSTOM_COLORS),
+      matchMode: z.enum(["draw", "none"]),
+      themeRules: z.string().trim().max(500).optional().default(""),
+      revealMode: z.enum(["private", "together"]).default("private"),
+    })
+    .optional(),
+  saveTemplate: z.boolean().default(false),
 });
 
 function registerWizardRoutes(app: express.Express) {
@@ -1319,6 +1377,12 @@ function registerWizardRoutes(app: express.Express) {
       const types = await db.query("SELECT * FROM event_types WHERE slug = ? AND is_active = 1 LIMIT 1", [input.eventTypeSlug]);
       const type = types[0] ? mapEventType(types[0]) : null;
       if (!type) throw new HttpError(400, "validation.eventType");
+      // "Create your own": the design decides the mechanics; other services ignore any custom payload.
+      const custom = type.slug === "custom" ? (input as any).custom ?? null : null;
+      if (type.slug === "custom" && !custom) throw new HttpError(400, "validation.customDesign");
+      if (custom && custom.matchMode === "none") custom.revealMode = "private"; // nothing to reveal without a draw
+      if (custom?.revealMode === "together" && !input.exchangeDate) throw new HttpError(400, "validation.revealNeedsDate");
+      const usesDraw = custom ? custom.matchMode === "draw" : type.uses_draw;
 
       // Organizer first (index 0) when they take part, then the list, deduped by email.
       const people: Array<{ name: string; email: string; isMe: boolean }> = [];
@@ -1332,15 +1396,15 @@ function registerWizardRoutes(app: express.Express) {
         seen.add(p.email);
         people.push({ ...p, isMe: false });
       }
-      const minPeople = type.uses_draw ? 3 : 1;
+      const minPeople = usesDraw ? 3 : 1;
       if (people.length < minPeople) throw new HttpError(400, "validation.minParticipants", { min: minPeople });
       // Exclusions reference people by email ("me" = the organizer), so list edits / login can't shift them.
       const indexOf = (ref: string) => people.findIndex((p) => (ref === "me" ? p.isMe : p.email === ref));
-      const excl = input.exclusions.map((x) => ({ a: indexOf(x.a), b: indexOf(x.b), bidirectional: x.bidirectional }));
+      const excl = (usesDraw ? input.exclusions : []).map((x) => ({ a: indexOf(x.a), b: indexOf(x.b), bidirectional: x.bidirectional }));
       for (const x of excl) {
         if (x.a < 0 || x.b < 0 || x.a === x.b) throw new HttpError(400, "validation.exclusion");
       }
-      if (type.uses_draw && !drawAssignments(people.map((_, i) => i + 1), expandExclusions(excl.map((x) => ({ giver: x.a + 1, receiver: x.b + 1, bidirectional: x.bidirectional }))))) {
+      if (usesDraw && !drawAssignments(people.map((_, i) => i + 1), expandExclusions(excl.map((x) => ({ giver: x.a + 1, receiver: x.b + 1, bidirectional: x.bidirectional }))))) {
         throw new HttpError(400, "validation.drawImpossible");
       }
 
@@ -1378,14 +1442,30 @@ function registerWizardRoutes(app: express.Express) {
           throw new HttpError(402, needs, { max: maxParticipants, free_max: pricing.free_max_participants, pro_max: pricing.pro_max_participants });
         }
         // Pro needs an active workspace subscription; Pro/Enterprise workspaces are already covered.
-        const payNow = plan === "pro" && tenantPlan === "free";
+        // Pro-only services (and "Create your own") always need Pro.
+        const payNow = (plan === "pro" || type.requires_pro) && tenantPlan === "free";
 
         const publicId = newPublicId();
         const ev = await tx.exec(
-          `INSERT INTO events (public_id, tenant_id, event_type_id, name, description, status, plan, invites_pending, budget_min, budget_max, currency, exchange_date, rsvp_deadline, location, allow_wishlists, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [publicId, tenantId, type.id, input.name, input.description || null, payNow ? "pending_payment" : "open", "free", payNow && input.sendInvites ? 1 : 0, input.budgetMin ?? null, input.budgetMax ?? null, input.currency, input.exchangeDate ?? null, input.rsvpDeadline ?? null, input.location ?? null, input.allowWishlists ? 1 : 0, u.id],
+          `INSERT INTO events (public_id, tenant_id, event_type_id, name, custom_name, custom_icon, custom_color, match_mode, theme_rules, reveal_mode, description, status, plan, invites_pending, budget_min, budget_max, currency, exchange_date, rsvp_deadline, location, allow_wishlists, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            publicId, tenantId, type.id, input.name,
+            custom?.name ?? null, custom?.icon ?? null, custom?.color ?? null, custom?.matchMode ?? null, custom?.themeRules || null, custom?.revealMode ?? "private",
+            input.description || null, payNow ? "pending_payment" : "open", "free", payNow && input.sendInvites ? 1 : 0,
+            input.budgetMin ?? null, input.budgetMax ?? null, input.currency, input.exchangeDate ?? null, input.rsvpDeadline ?? null, input.location ?? null, input.allowWishlists ? 1 : 0, u.id,
+          ],
         );
+        if (custom && (input as any).saveTemplate) {
+          // Reusable design for this workspace (Pro feature; the exchange itself already requires Pro).
+          await tx.exec(
+            `INSERT INTO event_templates (tenant_id, created_by, name, icon, color, match_mode, allow_wishlists, budget_min, budget_max, currency, theme_rules, reveal_mode)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE icon = VALUES(icon), color = VALUES(color), match_mode = VALUES(match_mode), allow_wishlists = VALUES(allow_wishlists),
+               budget_min = VALUES(budget_min), budget_max = VALUES(budget_max), currency = VALUES(currency), theme_rules = VALUES(theme_rules), reveal_mode = VALUES(reveal_mode)`,
+            [tenantId, u.id, custom.name, custom.icon, custom.color, custom.matchMode, input.allowWishlists ? 1 : 0, input.budgetMin ?? null, input.budgetMax ?? null, input.currency, custom.themeRules || null, custom.revealMode],
+          );
+        }
         const eventId = ev.insertId;
         const ids: number[] = [];
         for (const p of people) {
@@ -1422,7 +1502,8 @@ function registerWizardRoutes(app: express.Express) {
             email: people[i].email,
             organizer: input.organizerName,
             event: { name: input.name, exchange_date: input.exchangeDate ?? null, budget_min: input.budgetMin ?? null, budget_max: input.budgetMax ?? null, currency: input.currency },
-            typeName: reqLang(req) === "es" ? type.name_es : type.name_en,
+            typeName: custom?.name ?? (reqLang(req) === "es" ? type.name_es : type.name_en),
+            themeRules: custom?.themeRules || null,
           });
           if (ok) invited++;
         });
@@ -1438,7 +1519,7 @@ function registerJoinRoutes(app: express.Express) {
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) throw new HttpError(404, "errors.inviteInvalid");
     const rows = await db.query(
       `SELECT p.id, p.tenant_id, p.event_id, p.name, p.email, p.status, e.name AS event_name, e.status AS event_status, e.exchange_date,
-              e.budget_min, e.budget_max, e.currency, e.public_id AS event_public_id, et.name_en, et.name_es, t.name AS tenant_name, t.status AS tenant_status
+              e.budget_min, e.budget_max, e.currency, e.public_id AS event_public_id, e.custom_name, e.theme_rules, et.name_en, et.name_es, t.name AS tenant_name, t.status AS tenant_status
          FROM participants p JOIN events e ON e.id = p.event_id JOIN event_types et ON et.id = e.event_type_id JOIN tenants t ON t.id = p.tenant_id
         WHERE p.invite_token_hash = ? LIMIT 1`,
       [sha256(token)],
@@ -1459,7 +1540,8 @@ function registerJoinRoutes(app: express.Express) {
           email_hint: r.email.replace(/^(.).*(@.*)$/, "$1•••$2"),
           event_name: r.event_name,
           event_status: r.event_status,
-          type_name: reqLang(req) === "es" ? r.name_es : r.name_en,
+          type_name: serviceLabel(r, reqLang(req)),
+          theme_rules: r.theme_rules ?? null,
           exchange_date: r.exchange_date,
           budget: budgetLabel(toNum(r.budget_min), toNum(r.budget_max), r.currency),
           tenant_name: r.tenant_name,
@@ -1480,6 +1562,16 @@ function registerJoinRoutes(app: express.Express) {
       if (r.event_status === "completed" || r.event_status === "pending_payment") throw new HttpError(409, "errors.eventClosed");
       // After the draw the matches are fixed: no leaving, and decliners can't come back without a match.
       if (r.event_status === "drawn" && (!accept || r.status !== "joined" && r.status !== "invited")) throw new HttpError(409, "errors.alreadyDrawn");
+      if (accept && r.event_status === "drawn") {
+        // Only people who were part of the draw can still join (they have a match waiting).
+        const inDraw = await db.query("SELECT id FROM assignments WHERE event_id = ? AND giver_participant_id = ? LIMIT 1", [r.event_id, r.id]);
+        if (!inDraw[0]) throw new HttpError(409, "errors.alreadyDrawn");
+      }
+      if (accept && r.status === "declined") {
+        // A decliner coming back takes a seat again: respect the plan limit.
+        const { event, maxParticipants } = await loadTenantEvent(Number(r.tenant_id), Number(r.event_id));
+        if (event.participant_count + 1 > maxParticipants) throw new HttpError(402, "errors.participantLimit", { max: maxParticipants });
+      }
       await db.tx(async (tx) => {
         await tx.exec(
           `UPDATE participants SET user_id = ?, status = ?, joined_at = IF(? = 'joined', COALESCE(joined_at, UTC_TIMESTAMP()), joined_at) WHERE id = ?`,
@@ -1501,7 +1593,7 @@ function registerJoinRoutes(app: express.Express) {
 const EVENT_GRID: GridSpec = {
   sortMap: { id: "e.id", name: "e.name", exchange_date: "e.exchange_date", status: "e.status", created_at: "e.created_at" },
   defaultSort: "created_at",
-  filters: { status: { column: "e.status", values: ["draft", "open", "drawn", "completed", "cancelled"] }, type: { column: "et.slug", values: [] } },
+  filters: { status: { column: "e.status", values: ["pending_payment", "draft", "open", "drawn", "completed", "cancelled"] }, type: { column: "et.slug", values: [] } },
   search: ["e.name", "e.location"],
 };
 
@@ -1518,8 +1610,8 @@ const eventPatchSchema = z.object({
   description: z.string().trim().max(2000).nullable().optional(),
   exchange_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   rsvp_deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  budget_min: z.number().min(0).nullable().optional(),
-  budget_max: z.number().min(0).nullable().optional(),
+  budget_min: z.number().min(0).max(1_000_000).nullable().optional(),
+  budget_max: z.number().min(0).max(1_000_000).nullable().optional(),
   currency: z.string().regex(/^[A-Z]{3}$/).optional(),
   location: z.string().trim().max(200).nullable().optional(),
   allow_wishlists: z.boolean().optional(),
@@ -1620,6 +1712,8 @@ function registerTenantRoutes(app: express.Express) {
       const id = parseId(req.params.id);
       const body = eventPatchSchema.parse(req.body ?? {});
       const { event, row } = await loadTenantEvent(tenant_id, id);
+      // "Reveal together" exchanges always keep a date (clearing it would reveal every match at once).
+      if (event.reveal_mode === "together" && body.exchange_date === null) throw new HttpError(400, "validation.revealNeedsDate");
       if (body.status && body.status !== event.status && !canTransition(event.status, body.status, toBool(row.uses_draw))) {
         throw new HttpError(event.status === "pending_payment" ? 402 : 409, event.status === "pending_payment" ? "errors.paymentRequired" : "errors.invalidTransition");
       }
@@ -1688,9 +1782,13 @@ function registerTenantRoutes(app: express.Express) {
         added++;
         toInvite.push({ id: Number(row2.id), email: p.email });
       }
-      if (body.send_invites) {
+      if (body.send_invites && event.status === "pending_payment") {
+        // Not paid yet: queue the invites; they go out when the workspace subscribes.
+        if (toInvite.length) await db.exec("UPDATE events SET invites_pending = 1 WHERE id = ? AND tenant_id = ?", [eventId, tenant_id]);
+      } else if (body.send_invites) {
+        const lang = reqLang(req);
         await inBatches(toInvite, 8, async (p) => {
-          if (await sendInvite(req, db, { tenantId: tenant_id, participantId: p.id, email: p.email, organizer: u.full_name, event, typeName: event.event_type_name })) invited++;
+          if (await sendInvite(req, db, { tenantId: tenant_id, participantId: p.id, email: p.email, organizer: u.full_name, event, typeName: serviceLabel(row, lang) })) invited++;
         });
       }
       await audit(req, "participant.add", "event", eventId, { tenantId: tenant_id, actorId: u.id, meta: { added } });
@@ -1707,9 +1805,17 @@ function registerTenantRoutes(app: express.Express) {
       const pid = parseId(req.params.pid);
       // Organizers can remove or re-invite; "joined" only happens when the person accepts.
       const body = z.object({ name: z.string().trim().min(1).max(120).optional(), status: z.enum(["invited", "removed"]).optional() }).parse(req.body ?? {});
-      const { event } = await loadTenantEvent(tenant_id, eventId);
+      const { event, maxParticipants, pricing, row } = await loadTenantEvent(tenant_id, eventId);
       if (body.status && event.status === "drawn") throw new HttpError(409, "errors.alreadyDrawn");
       if (body.status && (event.status === "cancelled" || event.status === "completed")) throw new HttpError(409, "errors.eventClosed");
+      if (body.status === "invited") {
+        // Re-inviting a removed/declined person counts against the plan limit.
+        const cur = (await db.query("SELECT status FROM participants WHERE id = ? AND event_id = ? AND tenant_id = ?", [pid, eventId, tenant_id]))[0];
+        if (cur && !["invited", "joined"].includes(cur.status) && event.participant_count + 1 > maxParticipants) {
+          const canUpgrade = row.tenant_plan === "free" && event.participant_count + 1 <= pricing.pro_max_participants;
+          throw new HttpError(402, canUpgrade ? "errors.needsPro" : "errors.participantLimit", { max: maxParticipants, free_max: pricing.free_max_participants, pro_max: pricing.pro_max_participants });
+        }
+      }
       const sets: string[] = [];
       const params: unknown[] = [];
       if (body.name) (sets.push("name = ?"), params.push(body.name));
@@ -1730,11 +1836,12 @@ function registerTenantRoutes(app: express.Express) {
       const { tenant_id } = tenantCtx(res);
       const eventId = parseId(req.params.id);
       const pid = parseId(req.params.pid);
-      const { event } = await loadTenantEvent(tenant_id, eventId);
+      const { event, row } = await loadTenantEvent(tenant_id, eventId);
+      if (event.status === "pending_payment") throw new HttpError(402, "errors.paymentRequired");
       const rows = await db.query("SELECT id, email, status FROM participants WHERE id = ? AND event_id = ? AND tenant_id = ?", [pid, eventId, tenant_id]);
       if (!rows[0]) throw new HttpError(404, "errors.notFound");
       if (rows[0].status === "removed") throw new HttpError(409, "errors.participantRemoved");
-      const ok = await sendInvite(req, db, { tenantId: tenant_id, participantId: pid, email: rows[0].email, organizer: authed(res).full_name, event, typeName: event.event_type_name });
+      const ok = await sendInvite(req, db, { tenantId: tenant_id, participantId: pid, email: rows[0].email, organizer: authed(res).full_name, event, typeName: serviceLabel(row, reqLang(req)) });
       if (!ok) throw new HttpError(502, "errors.emailFailed");
       res.json({ ok: true });
     }),
@@ -1792,7 +1899,7 @@ function registerTenantRoutes(app: express.Express) {
         const locked = await tx.exec("UPDATE events SET status = 'drawn', drawn_at = UTC_TIMESTAMP() WHERE id = ? AND tenant_id = ? AND status = 'open'", [eventId, tenant_id]);
         if (locked.affectedRows !== 1) throw new HttpError(409, "errors.alreadyDrawn");
         const people = await tx.query(
-          `SELECT id, email, user_id FROM participants WHERE event_id = ? AND tenant_id = ? AND status IN (${includeInvited ? "'invited','joined'" : "'joined'"})`,
+          `SELECT id, email, user_id, status FROM participants WHERE event_id = ? AND tenant_id = ? AND status IN (${includeInvited ? "'invited','joined'" : "'joined'"})`,
           [eventId, tenant_id],
         );
         if (people.length < 3) throw new HttpError(400, "validation.minParticipants", { min: 3 });
@@ -1813,9 +1920,17 @@ function registerTenantRoutes(app: express.Express) {
       const ids = people.map((p) => Number(p.id));
       const link = `${appUrl()}/app/my/${event.public_id}`;
       let notified = 0;
-      const tpl = tplAssignment(reqLang(req), { eventName: event.name, link });
+      const tpl = tplAssignment(reqLang(req), { eventName: event.name, link, revealOn: event.reveal_mode === "together" ? event.exchange_date : null });
+      const { row: evRow } = await loadTenantEvent(tenant_id, eventId);
+      const organizer = authed(res).full_name;
       await inBatches(people, 10, async (p) => {
-        if ((await sendEmail({ to: p.email, ...tpl, template: "assignment", tenantId: tenant_id })).ok) notified++;
+        // Joined people go straight to their match; invited-but-not-joined get a fresh join link
+        // (the match page needs a joined account, so a plain draw email would lead to a 404).
+        const ok =
+          p.status === "joined"
+            ? (await sendEmail({ to: p.email, ...tpl, template: "assignment", tenantId: tenant_id })).ok
+            : await sendInvite(req, db, { tenantId: tenant_id, participantId: Number(p.id), email: p.email, organizer, event, typeName: serviceLabel(evRow, reqLang(req)) });
+        if (ok) notified++;
       });
       await audit(req, "event.draw", "event", eventId, { tenantId: tenant_id, actorId: authed(res).id, meta: { participants: ids.length } });
       res.json({ ok: true, assigned: result.size, notified });
@@ -1831,8 +1946,10 @@ function registerTenantRoutes(app: express.Express) {
       const { event } = await loadTenantEvent(tenant_id, eventId);
       if (event.status !== "drawn") throw new HttpError(409, "errors.notDrawn");
       await db.tx(async (tx) => {
+        // Status guard inside the transaction: a completed exchange can never be reopened by a racing reset.
+        const r = await tx.exec("UPDATE events SET status = 'open', drawn_at = NULL WHERE id = ? AND tenant_id = ? AND status = 'drawn'", [eventId, tenant_id]);
+        if (r.affectedRows !== 1) throw new HttpError(409, "errors.notDrawn");
         await tx.exec("DELETE FROM assignments WHERE event_id = ? AND tenant_id = ?", [eventId, tenant_id]);
-        await tx.exec("UPDATE events SET status = 'open', drawn_at = NULL WHERE id = ? AND tenant_id = ?", [eventId, tenant_id]);
       });
       await audit(req, "event.reset_draw", "event", eventId, { tenantId: tenant_id, actorId: authed(res).id });
       res.json({ ok: true });
@@ -1854,7 +1971,7 @@ function registerTenantRoutes(app: express.Express) {
 
   app.get(
     "/api/app/billing",
-    requireTenant("members.manage"),
+    requireTenant("members.manage", { allowSuspended: true }),
     route(async (_req, res) => {
       const { tenant_id } = tenantCtx(res);
       const t = await loadBillingTenant(tenant_id);
@@ -1929,7 +2046,7 @@ function registerTenantRoutes(app: express.Express) {
   app.post(
     "/api/app/billing/sync",
     writeLimiter,
-    requireTenant("members.manage"),
+    requireTenant("members.manage", { allowSuspended: true }),
     route(async (req, res) => {
       const { tenant_id } = tenantCtx(res);
       const t = await loadBillingTenant(tenant_id);
@@ -1945,7 +2062,7 @@ function registerTenantRoutes(app: express.Express) {
   app.post(
     "/api/app/billing/payment-method/setup",
     writeLimiter,
-    requireTenant("members.manage"),
+    requireTenant("members.manage", { allowSuspended: true }),
     route(async (_req, res) => {
       const t = await loadBillingTenant(tenantCtx(res).tenant_id);
       if (!t.stripe_customer_id) throw new HttpError(409, "errors.noSubscription");
@@ -1956,7 +2073,7 @@ function registerTenantRoutes(app: express.Express) {
   app.post(
     "/api/app/billing/payment-method",
     writeLimiter,
-    requireTenant("members.manage"),
+    requireTenant("members.manage", { allowSuspended: true }),
     route(async (req, res) => {
       const { tenant_id } = tenantCtx(res);
       const pm = z.string().regex(/^pm_[A-Za-z0-9_]{6,}$/).parse(req.body?.payment_method_id);
@@ -2019,7 +2136,7 @@ function registerTenantRoutes(app: express.Express) {
   app.post(
     "/api/app/billing/cancel",
     writeLimiter,
-    requireTenant("members.manage"),
+    requireTenant("members.manage", { allowSuspended: true }),
     route(async (req, res) => {
       const { tenant_id } = tenantCtx(res);
       const body = cancelSchema.parse(req.body ?? {});
@@ -2057,6 +2174,50 @@ function registerTenantRoutes(app: express.Express) {
     }),
   );
 
+  // ── Custom exchange templates (organizers; created from the wizard) ──
+  app.get(
+    "/api/app/templates",
+    requireTenant("events.manage"),
+    route(async (_req, res) => {
+      // Saved designs are a Pro feature (kept in the DB while lapsed; shown again on resubscribe).
+      const ws = authed(res).memberships.find((m) => m.tenant_id === tenantCtx(res).tenant_id);
+      if (!ws || ws.tenant_plan === "free") return void res.json({ ok: true, items: [], locked: true });
+      const rows = await db.query(
+        "SELECT id, name, icon, color, match_mode, allow_wishlists, budget_min, budget_max, currency, theme_rules, reveal_mode, created_at FROM event_templates WHERE tenant_id = ? ORDER BY updated_at DESC LIMIT 50",
+        [tenantCtx(res).tenant_id],
+      );
+      res.json({
+        ok: true,
+        items: rows.map(
+          (r): ExchangeTemplate => ({
+            id: Number(r.id),
+            name: r.name,
+            icon: r.icon,
+            color: r.color,
+            match_mode: r.match_mode,
+            allow_wishlists: toBool(r.allow_wishlists),
+            budget_min: toNum(r.budget_min),
+            budget_max: toNum(r.budget_max),
+            currency: r.currency,
+            theme_rules: r.theme_rules ?? null,
+            reveal_mode: r.reveal_mode,
+          }),
+        ),
+      });
+    }),
+  );
+
+  app.delete(
+    "/api/app/templates/:id",
+    requireTenant("events.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const r = await db.exec("DELETE FROM event_templates WHERE id = ? AND tenant_id = ?", [parseId(req.params.id), tenant_id]);
+      if (!r.affectedRows) throw new HttpError(404, "errors.notFound");
+      res.json({ ok: true });
+    }),
+  );
+
   // ── Participant views (any member) ──
   app.get(
     "/api/app/my/events",
@@ -2088,7 +2249,11 @@ function registerTenantRoutes(app: express.Express) {
       const r = rows[0];
       if (!r) throw new HttpError(404, "errors.notFound");
       let receiver: MyAssignment["receiver"] = null;
-      if (r.status === "drawn" || r.status === "completed") {
+      // "Reveal together": matches stay hidden until the exchange day (UTC date).
+      const revealAt = r.reveal_mode === "together" && r.exchange_date ? String(r.exchange_date).slice(0, 10) : null;
+      // No date on a "together" exchange (legacy data) → stay hidden rather than leak.
+      const hiddenUntilDay = r.reveal_mode === "together" && (!revealAt || revealAt > new Date().toISOString().slice(0, 10));
+      if ((r.status === "drawn" || r.status === "completed") && !hiddenUntilDay) {
         const a = await db.query(
           `SELECT a.id, rp.name, rp.wishlist FROM assignments a JOIN participants rp ON rp.id = a.receiver_participant_id
             WHERE a.event_id = ? AND a.giver_participant_id = ? LIMIT 1`,
@@ -2099,7 +2264,12 @@ function registerTenantRoutes(app: express.Express) {
           await db.exec("UPDATE assignments SET viewed_at = COALESCE(viewed_at, UTC_TIMESTAMP()) WHERE id = ?", [a[0].id]);
         }
       }
-      const out: MyAssignment = { event: mapEvent(r), me: { participant_id: Number(r.me_id), name: r.me_name, wishlist: r.me_wishlist ?? null, status: r.me_status }, receiver };
+      const out: MyAssignment = {
+        event: mapEvent(r),
+        me: { participant_id: Number(r.me_id), name: r.me_name, wishlist: r.me_wishlist ?? null, status: r.me_status },
+        receiver,
+        reveal_at: hiddenUntilDay && (r.status === "drawn" || r.status === "completed") ? revealAt : null,
+      };
       res.json({ ok: true, ...out });
     }),
   );
@@ -2477,6 +2647,7 @@ function registerAdminRoutes(app: express.Express) {
     description_es: z.string().trim().max(255).default(""),
     icon: z.string().regex(/^[a-z-]{2,40}$/).default("gift"),
     uses_draw: z.boolean().default(true),
+    requires_pro: z.boolean().default(false),
     is_active: z.boolean().default(true),
     sort_order: z.number().int().min(0).max(10000).default(100),
   });
@@ -2487,8 +2658,8 @@ function registerAdminRoutes(app: express.Express) {
     route(async (req, res) => {
       const b = eventTypeSchema.parse(req.body ?? {});
       const r = await db.exec(
-        "INSERT INTO event_types (slug, name_en, name_es, description_en, description_es, icon, uses_draw, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [b.slug, b.name_en, b.name_es, b.description_en, b.description_es, b.icon, b.uses_draw ? 1 : 0, b.is_active ? 1 : 0, b.sort_order],
+        "INSERT INTO event_types (slug, name_en, name_es, description_en, description_es, icon, uses_draw, requires_pro, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [b.slug, b.name_en, b.name_es, b.description_en, b.description_es, b.icon, b.uses_draw ? 1 : 0, b.requires_pro ? 1 : 0, b.is_active ? 1 : 0, b.sort_order],
       );
       await audit(req, "admin.catalog.create", "event_type", b.slug, { actorId: authed(res).id });
       res.status(201).json({ ok: true, id: r.insertId });
@@ -2501,6 +2672,9 @@ function registerAdminRoutes(app: express.Express) {
     route(async (req, res) => {
       const id = parseId(req.params.id);
       const b = eventTypeSchema.partial().omit({ slug: true }).parse(req.body ?? {});
+      // "Create your own" is a Pro feature by product definition.
+      const slugRow = (await db.query("SELECT slug FROM event_types WHERE id = ?", [id]))[0];
+      if (slugRow?.slug === "custom" && b.requires_pro === false) throw new HttpError(400, "errors.customIsPro");
       const keys = Object.keys(b);
       if (!keys.length) return void res.json({ ok: true });
       const r = await db.exec(`UPDATE event_types SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE id = ?`, [
@@ -2584,7 +2758,13 @@ function registerCronRoutes(app: express.Express) {
     "/api/cron/cleanup",
     route(async (req, res) => {
       const secret = process.env.CRON_SECRET;
-      if ((secret || IS_PROD) && req.headers.authorization !== `Bearer ${secret}`) throw new HttpError(401, "errors.unauthorized");
+      if (!secret) {
+        if (IS_PROD) throw new HttpError(503, "errors.cronNotConfigured");
+      } else {
+        const given = Buffer.from(String(req.headers.authorization || ""));
+        const want = Buffer.from(`Bearer ${secret}`);
+        if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) throw new HttpError(401, "errors.unauthorized");
+      }
       const otp = await db.exec("DELETE FROM otp_codes WHERE created_at < UTC_TIMESTAMP() - INTERVAL 2 DAY");
       const sess = await db.exec("DELETE FROM user_sessions WHERE expires_at < UTC_TIMESTAMP() - INTERVAL 7 DAY OR (is_active = 0 AND created_at < UTC_TIMESTAMP() - INTERVAL 30 DAY)");
       res.json({ ok: true, otp_deleted: otp.affectedRows, sessions_deleted: sess.affectedRows });
@@ -2600,6 +2780,13 @@ function buildApp() {
   const app = express();
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
+  // Same headers as vercel.json (also covers local dev and any non-Vercel host).
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
   app.use(
     express.json({
       limit: "1mb",

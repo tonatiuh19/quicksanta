@@ -1,9 +1,9 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { WizardExclusion, WizardLaunchInput, WizardLaunchResult, WizardParticipant } from "@shared/api";
+import type { CustomDesign, WizardExclusion, WizardLaunchInput, WizardLaunchResult, WizardParticipant } from "@shared/api";
 import { api } from "@/lib/api";
 import { createApiThunk } from "@/lib/portalThunk";
 
-export const WIZARD_STEPS = ["service", "details", "people", "rules", "account", "review"] as const;
+export const WIZARD_STEPS = ["service", "design", "details", "people", "rules", "account", "review"] as const;
 export type WizardStep = (typeof WIZARD_STEPS)[number];
 
 export interface WizardState {
@@ -31,7 +31,17 @@ export const emptyDraft = (): WizardLaunchInput => ({
   participants: [],
   exclusions: [],
   sendInvites: true,
+  custom: emptyDesign(),
+  saveTemplate: false,
 });
+
+export const emptyDesign = (): CustomDesign => ({ name: "", icon: "sparkles", color: "red", matchMode: "draw", themeRules: "", revealMode: "private" });
+
+/** Whether the draft runs a secret draw (custom design decides for "Create your own"). */
+export function draftUsesDraw(d: WizardLaunchInput, type: { slug: string; uses_draw: boolean } | undefined): boolean {
+  if (d.eventTypeSlug === "custom") return (d.custom?.matchMode ?? "draw") === "draw";
+  return type?.uses_draw !== false;
+}
 
 function loadDraft(): WizardLaunchInput {
   try {
@@ -56,7 +66,11 @@ export function clearDraft() {
   }
 }
 
-export const launchWizard = createApiThunk("wizard/launch", async (draft: WizardLaunchInput) => (await api.post<WizardLaunchResult>("/wizard/launch", draft)).data);
+export const launchWizard = createApiThunk("wizard/launch", async (draft: WizardLaunchInput) => {
+  const { custom, saveTemplate, ...rest } = draft;
+  const body = draft.eventTypeSlug === "custom" ? { ...rest, custom, saveTemplate: Boolean(saveTemplate) } : rest;
+  return (await api.post<WizardLaunchResult>("/wizard/launch", body)).data;
+});
 
 export const ME = "me";
 /** Everyone who will take part (organizer first when included). `ref` is what exclusions store. */
@@ -75,6 +89,9 @@ const slice = createSlice({
     },
     patchDraft(s, a: PayloadAction<Partial<WizardLaunchInput>>) {
       s.draft = { ...s.draft, ...a.payload };
+    },
+    patchDesign(s, a: PayloadAction<Partial<CustomDesign>>) {
+      s.draft.custom = { ...(s.draft.custom ?? emptyDesign()), ...a.payload };
     },
     addParticipants(s, a: PayloadAction<WizardParticipant[]>) {
       const seen = new Set(s.draft.participants.map((p) => p.email));
@@ -114,5 +131,5 @@ const slice = createSlice({
       }),
 });
 
-export const { goTo, patchDraft, addParticipants, removeParticipant, addExclusion, removeExclusion, resetWizard } = slice.actions;
+export const { goTo, patchDraft, patchDesign, addParticipants, removeParticipant, addExclusion, removeExclusion, resetWizard } = slice.actions;
 export default slice.reducer;

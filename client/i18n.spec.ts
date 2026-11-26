@@ -27,7 +27,8 @@ describe("i18n catalogs", () => {
     for (const m of src.matchAll(/\bt\(\s*"([a-zA-Z][\w]*(?:\.[\w]+)+)"/g)) used.add(m[1]);
     for (const m of src.matchAll(/(?:labelKey|section|titleKey)[:=]\s*"([a-zA-Z][\w]*(?:\.[\w]+)+)"/g)) used.add(m[1]);
     for (const m of src.matchAll(/"((?:errors|validation)\.[a-zA-Z]+)"/g)) used.add(m[1]);
-    const missing = [...used].filter((k) => !enKeys.has(k));
+    // Plural keys ("x" used with count) live as x_one / x_other.
+    const missing = [...used].filter((k) => !enKeys.has(k) && !(enKeys.has(`${k}_one`) && enKeys.has(`${k}_other`)));
     expect(missing).toEqual([]);
   });
 });

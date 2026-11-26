@@ -53,7 +53,7 @@ export default function OtpAuthCard({ defaultEmail = "", askName = false, onSign
         <form onSubmit={submitEmail} className="qs-form" noValidate>
           <label className="qs-field">
             <span>{t("auth.email")}</span>
-            <input type="email" autoComplete="email" inputMode="email" value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} placeholder="you@example.com" autoFocus />
+            <input type="email" autoComplete="email" inputMode="email" value={emailDraft} onChange={(e) => setEmailDraft(e.target.value)} placeholder={t("auth.emailPh")} autoFocus />
           </label>
           <ErrorNote error={localError ?? error} />
           <Button type="submit" disabled={busy} className="w-full qs-btn-primary">

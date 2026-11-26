@@ -91,6 +91,10 @@
     "cookie_swap": {
       "name": "Intercambio de galletas",
       "desc": "Hornea, trae y comparte."
+    },
+    "custom": {
+      "name": "Crea el tuyo",
+      "desc": "Diseña un intercambio único: nombre, tema, reglas, con o sin sorteo y estilo de revelación."
     }
   },
   "landing": {
@@ -192,8 +196,8 @@
         "per": "para siempre",
         "desc": "Para familias y grupos de amigos.",
         "features": [
+          "Amigo secreto y Elefante blanco",
           "Hasta 20 personas por intercambio",
-          "Hasta 10 intercambios activos",
           "Reglas de exclusión y listas de deseos",
           "Invitaciones por correo y revelación"
         ],
@@ -207,9 +211,9 @@
         "features": [
           "Todo lo de Gratis",
           "Hasta 100 personas por intercambio",
-          "Todos los intercambios de tu espacio",
-          "Cobro seguro con tarjeta, cancela cuando quieras",
-          "Soporte prioritario"
+          "Todos los servicios: listas, libros y galletas",
+          "✨ Crea tus propios intercambios + plantillas",
+          "Cancela cuando quieras"
         ],
         "cta": "Empezar con Pro"
       },
@@ -256,7 +260,8 @@
     "resend": "Reenviar código",
     "resendIn": "Reenviar en {{s}}s",
     "newHere": "¿Eres nuevo?",
-    "startWizard": "Crea un intercambio"
+    "startWizard": "Crea un intercambio",
+    "emailPh": "tu@correo.com"
   },
   "shell": {
     "menu": "Menú",
@@ -393,7 +398,11 @@
     "waitingBody": "Te avisaremos por correo cuando el organizador lo haga.",
     "myWishlist": "Mi lista de deseos",
     "wishlistHint": "Tu amigo secreto verá esto.",
-    "wishlistPh": "Tallas, colores favoritos, libros, cosas que te encantarían…"
+    "wishlistPh": "Tallas, colores favoritos, libros, cosas que te encantarían…",
+    "revealOn": "Las asignaciones se revelan el {{date}}",
+    "revealTogether": "¡El sorteo ya se hizo! Todos descubren a quién les tocó juntos el día del intercambio.",
+    "noDrawTitle": "Este intercambio no tiene sorteo",
+    "noDrawBody": "Todos traen un regalo. Revisa el tema y ¡nos vemos en la fiesta!"
   },
   "join": {
     "hello": "¡Hola {{name}}! Estás invitado 🎁",
@@ -415,11 +424,13 @@
       "people": "Personas",
       "rules": "Reglas",
       "account": "Cuenta",
-      "review": "Lanzar"
+      "review": "Lanzar",
+      "design": "Diseño"
     },
     "service": {
       "title": "¿Qué vamos a celebrar?",
-      "sub": "Elige el tipo de intercambio. Puedes crear los que quieras."
+      "sub": "Elige el tipo de intercambio. Puedes crear los que quieras.",
+      "proNote": "Este es un servicio Pro ({{price}}/mes). Puedes configurarlo ahora y suscribirte al lanzarlo."
     },
     "details": {
       "title": "Los detalles",
@@ -468,11 +479,14 @@
     "review": {
       "title": "Listo para lanzar 🚀",
       "sub": "Revisa y envía las invitaciones.",
-      "people": "{{count}} personas",
       "rules": "{{count}} regla(s)",
       "sendInvites": "Enviar invitaciones ahora",
       "launch": "Lanzar intercambio",
-      "launching": "Lanzando…"
+      "launching": "Lanzando…",
+      "people_one": "{{count}} persona",
+      "people_other": "{{count}} personas",
+      "proService": "“{{name}}” es un servicio Pro: tu espacio se suscribirá al lanzar.",
+      "coveredByPro": "Incluido en tu plan Pro. Sin costo extra."
     },
     "done": {
       "title": "¡Tu intercambio está listo!",
@@ -485,7 +499,53 @@
       "name": "Ponle nombre al intercambio (2+ caracteres).",
       "organizerName": "Dinos tu nombre.",
       "minPeople": "Agrega al menos {{min}} personas en total.",
-      "personName": "Agrega el nombre de la persona."
+      "personName": "Agrega el nombre de la persona.",
+      "customName": "Ponle nombre al estilo del intercambio (2+ caracteres)."
+    },
+    "design": {
+      "title": "Diseña tu intercambio",
+      "sub": "Hazlo tuyo: ponle nombre, estilo y sus propias reglas.",
+      "name": "Nombre del estilo",
+      "namePh": "Intercambio de suéteres feos",
+      "icon": "Ícono",
+      "color": "Color",
+      "match": "¿Cómo se asignan los regalos?",
+      "modes": {
+        "draw": {
+          "title": "Sorteo secreto",
+          "body": "Cada quien recibe a una persona secreta a quien regalar."
+        },
+        "none": {
+          "title": "Sin sorteo",
+          "body": "Todos traen un regalo; se intercambia o comparte en la fiesta."
+        }
+      },
+      "reveal": "¿Cuándo ven a quién les tocó?",
+      "reveals": {
+        "private": {
+          "title": "Justo después del sorteo",
+          "body": "Cada persona ve su asignación en privado."
+        },
+        "together": {
+          "title": "Todos juntos el día",
+          "body": "Las asignaciones se ocultan hasta la fecha del intercambio."
+        }
+      },
+      "rules": "Tema o reglas de la casa",
+      "rulesPh": "Hecho a mano · Menos de 10 minutos para envolver · Trae algo verde",
+      "saveTemplate": "Guardar este diseño como plantilla para la próxima",
+      "yourTemplates": "Tus diseños",
+      "colors": {
+        "red": "Rojo",
+        "green": "Verde",
+        "gold": "Dorado",
+        "blue": "Azul",
+        "purple": "Morado",
+        "pink": "Rosa",
+        "teal": "Turquesa",
+        "slate": "Pizarra"
+      },
+      "templateOverwrite": "Ya existe un diseño llamado “{{name}}”; se actualizará."
     }
   },
   "admin": {
@@ -585,7 +645,10 @@
       "noDraw": "Sin sorteo",
       "usage": "{{n}} intercambios",
       "icon": "Ícono",
-      "order": "Orden"
+      "order": "Orden",
+      "proOnly": "Solo Pro",
+      "free": "Gratis",
+      "slug": "Identificador (slug)"
     },
     "settings": {
       "version": "Versión en producción {{v}}",
@@ -651,7 +714,9 @@
     "offerUsed": "Esta oferta ya se usó.",
     "confirmNameMismatch": "El nombre no coincide con tu espacio.",
     "cardNotSaved": "No pudimos guardar esa tarjeta.",
-    "retryFailed": "Tarjeta guardada, pero el reintento falló. Prueba otra tarjeta."
+    "retryFailed": "Tarjeta guardada, pero el reintento falló. Prueba otra tarjeta.",
+    "customIsPro": "“Crea el tuyo” siempre requiere Pro.",
+    "cronNotConfigured": "Tarea programada no configurada."
   },
   "validation": {
     "invalid": "Revisa los campos.",
@@ -662,7 +727,9 @@
     "eventType": "Elige un servicio válido.",
     "minParticipants": "Se necesitan al menos {{min}} personas.",
     "exclusion": "Esa regla no es válida.",
-    "drawImpossible": "Con estas reglas no hay sorteo posible. Quita una regla o agrega personas."
+    "drawImpossible": "Con estas reglas no hay sorteo posible. Quita una regla o agrega personas.",
+    "customDesign": "Primero diseña tu intercambio.",
+    "revealNeedsDate": "“Revelar todos juntos” necesita una fecha de intercambio."
   },
   "checkout": {
     "kicker": "Intercambio Pro",

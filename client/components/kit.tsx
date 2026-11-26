@@ -147,9 +147,10 @@ export function formatDate(v: string | null | undefined, lang: string, withTime 
   return d.toLocaleString(lang.startsWith("es") ? "es-MX" : "en-US", withTime ? { dateStyle: "medium", timeStyle: "short" } : { dateStyle: "medium" });
 }
 
-export function formatBudget(min: number | null, max: number | null, currency: string) {
+export function formatBudget(min: number | null, max: number | null, currency: string, lang?: string) {
   if (min == null && max == null) return "—";
-  const f = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const locale = (lang ?? (typeof document !== "undefined" ? document.documentElement.lang : "")) || undefined;
+  const f = (n: number) => n.toLocaleString(locale?.startsWith("es") ? "es-MX" : "en-US", { maximumFractionDigits: 0 });
   if (min != null && max != null) return `${f(min)}–${f(max)} ${currency}`;
   return `${f((min ?? max)!)} ${currency}`;
 }

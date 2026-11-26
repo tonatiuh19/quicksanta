@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import type { DataGridColumn } from "@/components/ui/data-grid";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-  addExclusion, addParticipants, fetchEventDetail, removeExclusion, resendInvite, resetDraw, runDraw, updateEvent, updateParticipant,
+  addExclusion, addParticipants, fetchEventDetail, fetchEventPeople, removeExclusion, resendInvite, resetDraw, runDraw, updateEvent, updateParticipant,
 } from "@/store/slices/appSlice";
 
 type Tab = "people" | "rules" | "settings";
@@ -31,6 +31,16 @@ export default function EventDetail() {
   const [payOpen, setPayOpen] = useState(false);
   const me = useAppSelector((s) => s.auth.user);
 
+  const [busyRow, setBusyRow] = useState<number | null>(null);
+  const rowAct = async (rowId: number, p: Promise<any>, okKey: string) => {
+    if (busyRow) return;
+    setBusyRow(rowId);
+    try {
+      await act(p, okKey);
+    } finally {
+      setBusyRow(null);
+    }
+  };
   const refresh = () => {
     void dispatch(fetchEventDetail(id));
     setReload((n) => n + 1);
@@ -73,12 +83,12 @@ export default function EventDetail() {
       render: (p) => (
         <div className="qs-row-actions" onClick={(e) => e.stopPropagation()}>
           {p.status === "invited" ? (
-            <button className="qs-icon-btn" title={t("people.resend")} aria-label={t("people.resend")} onClick={() => void act(dispatch(resendInvite({ eventId: id, id: p.id })), "people.resent")}>
+            <button className="qs-icon-btn" disabled={busyRow === p.id} title={t("people.resend")} aria-label={t("people.resend")} onClick={() => void rowAct(p.id, dispatch(resendInvite({ eventId: id, id: p.id })), "people.resent")}>
               <Send size={15} />
             </button>
           ) : null}
           {!locked && p.status !== "removed" ? (
-            <button className="qs-icon-btn danger" title={t("people.remove")} aria-label={t("people.remove")} onClick={() => void act(dispatch(updateParticipant({ eventId: id, id: p.id, patch: { status: "removed" } })), "people.removed")}>
+            <button className="qs-icon-btn danger" disabled={busyRow === p.id} title={t("people.remove")} aria-label={t("people.remove")} onClick={() => void rowAct(p.id, dispatch(updateParticipant({ eventId: id, id: p.id, patch: { status: "removed" } })), "people.removed")}>
               <UserMinus size={15} />
             </button>
           ) : null}
@@ -93,7 +103,7 @@ export default function EventDetail() {
         <ArrowLeft size={15} /> {t("nav.events")}
       </Link>
       <PageHeader
-        kicker={t(`services.${event.event_type_slug}.name`, { defaultValue: event.event_type_name })}
+        kicker={event.custom?.name ?? t(`services.${event.event_type_slug}.name`, { defaultValue: event.event_type_name })}
         title={
           <>
             {event.name} <StatusBadge value={event.status} />
@@ -308,7 +318,11 @@ function RulesTab({ eventId, locked, onChange, onError }: { eventId: number; loc
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const detail = useAppSelector((s) => s.app.detail)!;
-  const people = useAppSelector((s) => s.appParticipants.items).filter((p) => p.status === "invited" || p.status === "joined");
+  const peopleState = useAppSelector((s) => s.app.people);
+  const people = peopleState?.eventId === eventId ? peopleState.people : [];
+  useEffect(() => {
+    void dispatch(fetchEventPeople(eventId));
+  }, [dispatch, eventId, detail.event.participant_count]);
   const [a, setA] = useState<number>(0);
   const [b, setB] = useState<number>(0);
   const [both, setBoth] = useState(true);

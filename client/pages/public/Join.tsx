@@ -84,6 +84,7 @@ export default function Join() {
                 </span>
               ) : null}
             </div>
+            {invite.theme_rules ? <p className="qs-invite-rules">“{invite.theme_rules}”</p> : null}
             <p>{t("join.hello", { name: invite.name })}</p>
           </div>
           {!user ? (

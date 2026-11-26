@@ -59,6 +59,10 @@ export function createGridSlice<T>(name: string, endpoint: string | ((arg: any) 
       resetQuery(s) {
         s.query = initialQuery;
       },
+      /** Forget everything (rows + query): used when the grid switches to another exchange. */
+      reset() {
+        return initialState;
+      },
     },
     extraReducers: (b) => {
       b.addCase(fetchGrid.pending, (s, a) => {
@@ -71,6 +75,9 @@ export function createGridSlice<T>(name: string, endpoint: string | ((arg: any) 
           s.loading = false;
           s.items = a.payload.items as any;
           s.pagination = a.payload.pagination;
+          // Rows disappeared (filter/removal) and we're past the last page: snap back (triggers a refetch).
+          const last = a.payload.pagination.totalPages;
+          if (a.payload.items.length === 0 && a.payload.pagination.total > 0 && s.query.page > last) s.query.page = last;
         })
         .addCase(fetchGrid.rejected, (s, a) => {
           if (s.requestId !== a.meta.requestId) return;

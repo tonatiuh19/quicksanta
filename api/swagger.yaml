@@ -654,3 +654,25 @@ paths:
         - $ref: '#/components/parameters/q'
       responses:
         '200': { description: OK }
+  /api/app/templates:
+    get:
+      tags: [Workspace]
+      summary: Saved "Create your own" designs of this workspace
+      description: "Guard: requireTenant(events.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+  /api/app/templates/{id}:
+    delete:
+      tags: [Workspace]
+      summary: Delete a saved design
+      description: "Guard: requireTenant(events.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

@@ -99,7 +99,7 @@ export const sessionCookie = `qs_sid=${SESSION_TOKEN}`;
 export function signIn(
   fake: FakeDb,
   user: Partial<{ id: number; email: string; full_name: string; platform_role: "owner" | "admin" | null; active_tenant_id: number | null }> = {},
-  memberships: Array<{ tenant_id: number; role: "organizer" | "participant"; tenant_status?: string; tenant_name?: string }> = [],
+  memberships: Array<{ tenant_id: number; role: "organizer" | "participant"; tenant_status?: string; tenant_name?: string; plan?: "free" | "pro" | "enterprise" }> = [],
 ) {
   const u = { id: 1, email: "me@example.com", full_name: "Me Tester", platform_role: null, active_tenant_id: memberships[0]?.tenant_id ?? null, ...user };
   fake.on(/FROM user_sessions s JOIN users u/, () => [
@@ -113,6 +113,10 @@ export function signIn(
       tenant_slug: `t-${m.tenant_id}`,
       tenant_status: m.tenant_status ?? "active",
       role: m.role,
+      plan_raw: m.plan ?? "free",
+      subscription_status: m.plan === "pro" ? "active" : "none",
+      past_due_since: null,
+      period_end: null,
     })),
   );
   return u;

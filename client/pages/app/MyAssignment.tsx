@@ -24,7 +24,7 @@ export default function MyAssignment() {
   }, [my, publicId]);
 
   if (!my || my.event.public_id !== publicId) return <div className="portal-page">{loading.my ? <Spinner label={t("common.loading")} /> : <ErrorNote error={error} />}</div>;
-  const { event, receiver } = my;
+  const { event, receiver, reveal_at } = my;
 
   return (
     <div className="portal-page">
@@ -32,7 +32,7 @@ export default function MyAssignment() {
         <ArrowLeft size={15} /> {t("nav.myExchanges")}
       </Link>
       <PageHeader
-        kicker={t(`services.${event.event_type_slug}.name`, { defaultValue: event.event_type_name })}
+        kicker={event.custom?.name ?? t(`services.${event.event_type_slug}.name`, { defaultValue: event.event_type_name })}
         title={
           <>
             {event.name} <StatusBadge value={event.status} />
@@ -53,6 +53,11 @@ export default function MyAssignment() {
         ) : null}
       </div>
 
+      {event.theme_rules ? (
+        <p className="qs-theme-rules">
+          <Sparkles size={15} /> {event.theme_rules}
+        </p>
+      ) : null}
       <div className="qs-two-col">
         <div className={`qs-reveal${revealed ? " is-revealed" : ""}`}>
           {receiver ? (
@@ -76,6 +81,18 @@ export default function MyAssignment() {
                 )}
               </span>
             </button>
+          ) : reveal_at ? (
+            <div className="qs-reveal-waiting is-countdown">
+              <CalendarDays size={32} />
+              <strong>{t("my.revealOn", { date: formatDate(reveal_at, i18n.language) })}</strong>
+              <span>{t("my.revealTogether")}</span>
+            </div>
+          ) : !event.uses_draw ? (
+            <div className="qs-reveal-waiting">
+              <Gift size={32} />
+              <strong>{t("my.noDrawTitle")}</strong>
+              <span>{t("my.noDrawBody")}</span>
+            </div>
           ) : (
             <div className="qs-reveal-waiting">
               <Lock size={32} />

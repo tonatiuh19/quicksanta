@@ -19,3 +19,10 @@ void i18n
   });
 
 export default i18n;
+
+// Keep <html lang> in sync (screen readers + number/date formatting helpers read it).
+const syncLang = (lng: string) => {
+  if (typeof document !== "undefined") document.documentElement.lang = lng?.startsWith("es") ? "es" : "en";
+};
+syncLang(i18n.language);
+i18n.on("languageChanged", syncLang);

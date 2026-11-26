@@ -111,6 +111,8 @@ export interface Membership {
   tenant_slug: string;
   tenant_status: TenantStatus;
   role: TenantRole;
+  /** Effective plan of the workspace (grace-aware). */
+  tenant_plan: "free" | "pro" | "enterprise";
 }
 
 export interface SessionUser {
@@ -133,8 +135,38 @@ export interface EventType {
   description_es: string;
   icon: string;
   uses_draw: boolean;
+  /** Pro-only service (Free workspaces see it with a Pro badge). */
+  requires_pro: boolean;
   is_active: boolean;
   sort_order: number;
+}
+
+export type CustomIcon = "sparkles" | "gift" | "heart" | "star" | "tree" | "music" | "coffee" | "palette" | "book" | "cookie" | "party" | "snowflake";
+export type CustomColor = "red" | "green" | "gold" | "blue" | "purple" | "pink" | "teal" | "slate";
+export type MatchMode = "draw" | "none";
+export type RevealMode = "private" | "together";
+
+export interface CustomDesign {
+  name: string;
+  icon: CustomIcon;
+  color: CustomColor;
+  matchMode: MatchMode;
+  themeRules: string;
+  revealMode: RevealMode;
+}
+
+export interface ExchangeTemplate {
+  id: number;
+  name: string;
+  icon: CustomIcon;
+  color: CustomColor;
+  match_mode: MatchMode;
+  allow_wishlists: boolean;
+  budget_min: number | null;
+  budget_max: number | null;
+  currency: string;
+  theme_rules: string | null;
+  reveal_mode: RevealMode;
 }
 
 export interface EventRow {
@@ -159,6 +191,12 @@ export interface EventRow {
   joined_count: number;
   drawn_at: string | null;
   created_at: string;
+  /** Set for "Create your own" exchanges. */
+  custom: { name: string; icon: CustomIcon; color: CustomColor } | null;
+  /** Effective: custom match mode or the service's default. */
+  uses_draw: boolean;
+  theme_rules: string | null;
+  reveal_mode: RevealMode;
 }
 
 export interface ParticipantRow {
@@ -187,6 +225,8 @@ export interface MyAssignment {
   event: EventRow;
   me: { participant_id: number; name: string; wishlist: string | null; status: ParticipantStatus };
   receiver: { name: string; wishlist: string | null } | null;
+  /** "Reveal together": the date matches become visible (drawn but still hidden). */
+  reveal_at: string | null;
 }
 
 export interface AdminTenantRow {
@@ -306,6 +346,8 @@ export interface WizardLaunchInput {
   sendInvites: boolean;
   tenantName?: string;
   plan?: EventPlan;
+  custom?: CustomDesign;
+  saveTemplate?: boolean;
 }
 
 export interface WizardLaunchResult {

@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { BillingOverview, CancelReason, EventRow, ExclusionRow, MyAssignment, PricingInfo, TenantDashboard } from "@shared/api";
+import type { BillingOverview, CancelReason, ExchangeTemplate, ParticipantRow, EventRow, ExclusionRow, MyAssignment, PricingInfo, TenantDashboard } from "@shared/api";
 import { api } from "@/lib/api";
 import { createApiThunk } from "@/lib/portalThunk";
 
@@ -46,6 +46,24 @@ export const updateTenant = createApiThunk("app/updateTenant", async (arg: { nam
 
 // ── Pro checkout (Stripe) ──
 export const fetchPricing = createApiThunk("app/pricing", async () => (await api.get<PricingInfo & { ok: true }>("/pricing")).data);
+/** Every invited/joined person of an exchange (walks all grid pages) — for pickers that must see everyone. */
+export const fetchEventPeople = createApiThunk("app/eventPeople", async (eventId: number) => {
+  const all: ParticipantRow[] = [];
+  for (let page = 1; page <= 50; page++) {
+    const { data } = await api.get<{ items: ParticipantRow[]; pagination: { totalPages: number } }>(`/app/events/${eventId}/participants`, { params: { page, limit: 100, sort_by: "name", sort_dir: "ASC" } });
+    all.push(...data.items.filter((p) => p.status === "invited" || p.status === "joined"));
+    if (page >= data.pagination.totalPages) break;
+  }
+  return { eventId, people: all };
+});
+
+// ── Custom exchange templates ──
+export const fetchTemplates = createApiThunk("app/templates", async () => (await api.get<{ items: ExchangeTemplate[] }>("/app/templates")).data.items);
+export const deleteTemplate = createApiThunk("app/deleteTemplate", async (id: number) => {
+  await api.delete(`/app/templates/${id}`);
+  return id;
+});
+
 // ── Billing (Pro subscription per workspace) ──
 export const fetchBilling = createApiThunk("app/billing", async () => (await api.get<BillingOverview & { ok: true }>("/app/billing")).data);
 export const startSubscription = createApiThunk("app/subscribe", async () => (await api.post<{ client_secret: string; subscription_id: string }>("/app/billing/subscribe", {})).data);
@@ -67,11 +85,13 @@ interface AppState {
   my: MyAssignment | null;
   pricing: PricingInfo | null;
   billing: BillingOverview | null;
+  templates: ExchangeTemplate[];
+  people: { eventId: number; people: ParticipantRow[] } | null;
   loading: Record<string, boolean>;
   error: string | null;
   busy: boolean;
 }
-const initialState: AppState = { dashboard: null, detail: null, myEvents: [], my: null, pricing: null, billing: null, loading: {}, error: null, busy: false };
+const initialState: AppState = { dashboard: null, detail: null, myEvents: [], my: null, pricing: null, billing: null, templates: [], people: null, loading: {}, error: null, busy: false };
 
 const slice = createSlice({
   name: "app",
@@ -112,6 +132,9 @@ const slice = createSlice({
     track(updateMember, "busy", () => undefined);
     track(fetchPricing, "pricing", (s, p) => void (s.pricing = p));
     track(fetchBilling, "billing", (s, p) => void (s.billing = p));
+    track(fetchTemplates, "templates", (s, p) => void (s.templates = p));
+    track(fetchEventPeople, "people", (s, p) => void (s.people = p));
+    track(deleteTemplate, "busy", (s, id) => void (s.templates = s.templates.filter((x) => x.id !== id)));
     track(acceptSaveOffer, "busy", () => undefined);
     track(cancelSubscription, "busy", () => undefined);
     track(resumeSubscription, "busy", () => undefined);
@@ -122,6 +145,6 @@ export const { clearAppError } = slice.actions;
 export default slice.reducer;
 
 // ── Invitations (public preview + respond) ──
-export type InvitePreview = { name: string; email_hint: string; event_name: string; event_status: string; type_name: string; exchange_date: string | null; budget: string | null; tenant_name: string; status: string };
+export type InvitePreview = { name: string; email_hint: string; event_name: string; event_status: string; type_name: string; theme_rules?: string | null; exchange_date: string | null; budget: string | null; tenant_name: string; status: string };
 export const fetchInvite = createApiThunk("app/fetchInvite", async (token: string) => (await api.get<{ invite: InvitePreview }>(`/join/${token}`)).data.invite);
 export const respondInvite = createApiThunk("app/respondInvite", async (arg: { token: string; accept: boolean }) => (await api.post<{ status: string; tenant_id: number; event_public_id: string }>(`/join/${arg.token}/respond`, { accept: arg.accept })).data);

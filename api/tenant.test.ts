@@ -62,11 +62,11 @@ describe("draw", () => {
 
   it("assigns everyone, locks the event and emails givers", async () => {
     fake.on(/FROM events e JOIN event_types et ON et.id = e.event_type_id JOIN tenants t/, [eventRow()]);
-    fake.on(/SELECT id, email, user_id FROM participants/, [
-      { id: 1, email: "a@example.com" },
-      { id: 2, email: "b@example.com" },
-      { id: 3, email: "c@example.com" },
-      { id: 4, email: "d@example.com" },
+    fake.on(/SELECT id, email, user_id, status FROM participants/, [
+      { id: 1, email: "a@example.com", status: "joined" },
+      { id: 2, email: "b@example.com", status: "joined" },
+      { id: 3, email: "c@example.com", status: "joined" },
+      { id: 4, email: "d@example.com", status: "invited" },
     ]);
     fake.on(/FROM exclusions WHERE event_id/, [{ giver_participant_id: 1, receiver_participant_id: 2, bidirectional: 1 }]);
     const r = await request(app).post("/api/app/events/5/draw").set("Cookie", sessionCookie).send({});
@@ -77,7 +77,9 @@ describe("draw", () => {
     for (let i = 0; i < ins.params.length; i += 4) pairs.push([ins.params[i + 2] as number, ins.params[i + 3] as number]);
     expect(pairs).toHaveLength(4);
     expect(pairs.find(([g, rr]) => (g === 1 && rr === 2) || (g === 2 && rr === 1))).toBeUndefined();
-    expect(__test.emailDryRuns.every((m) => m.template === "assignment")).toBe(true);
+    // Joined people get their match; invited-but-not-joined get a fresh join link (the match page needs an account).
+    expect(__test.emailDryRuns.filter((m) => m.template === "assignment").map((m) => m.to).sort()).toEqual(["a@example.com", "b@example.com", "c@example.com"]);
+    expect(__test.emailDryRuns.filter((m) => m.template === "invite").map((m) => m.to)).toEqual(["d@example.com"]);
   });
 
   it("refuses when already drawn or a concurrent draw won", async () => {

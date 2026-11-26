@@ -8,7 +8,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchAdminCatalog, saveEventType, type AdminEventType } from "@/store/slices/adminSlice";
 import { fetchEventTypes } from "@/store/slices/catalogSlice";
 
-const blank = { slug: "", name_en: "", name_es: "", description_en: "", description_es: "", icon: "gift", uses_draw: true, is_active: true, sort_order: 100 };
+const blank = { slug: "", name_en: "", name_es: "", description_en: "", description_es: "", icon: "gift", uses_draw: true, requires_pro: false, is_active: true, sort_order: 100 };
 
 export default function Catalog() {
   const { t, i18n } = useTranslation();
@@ -56,7 +56,7 @@ export default function Catalog() {
             </div>
             <p className="qs-fine">{es ? c.description_es : c.description_en}</p>
             <p className="qs-fine">
-              <code>{c.slug}</code> · {c.uses_draw ? t("admin.catalog.draw") : t("admin.catalog.noDraw")} · {t("admin.catalog.usage", { n: c.usage_count })}
+              <code>{c.slug}</code> · {c.uses_draw ? t("admin.catalog.draw") : t("admin.catalog.noDraw")} · {c.requires_pro ? t("admin.catalog.proOnly") : t("admin.catalog.free")} · {t("admin.catalog.usage", { n: c.usage_count })}
             </p>
             <Button variant="outline" size="sm" onClick={() => (setErr(null), setEditing({ ...c }))}>
               {t("common.edit")}
@@ -68,13 +68,13 @@ export default function Catalog() {
         {editing ? (
           <form className="qs-form qs-form-grid qs-modal-body" onSubmit={submit}>
             <label className="qs-field">
-              <span>Slug</span>
+              <span>{t("admin.catalog.slug")}</span>
               <input required pattern="[a-z0-9_]{2,40}" disabled={Boolean(editing.id)} value={editing.slug} onChange={(e) => set("slug", e.target.value)} />
             </label>
             <label className="qs-field">
               <span>{t("admin.catalog.icon")}</span>
               <select value={editing.icon} onChange={(e) => set("icon", e.target.value)}>
-                {["gift", "party", "list", "book", "cookie"].map((i) => (
+                {["gift", "party", "list", "book", "cookie", "sparkles"].map((i) => (
                   <option key={i}>{i}</option>
                 ))}
               </select>
@@ -98,6 +98,10 @@ export default function Catalog() {
             <label className="qs-switch">
               <input type="checkbox" checked={editing.uses_draw} onChange={(e) => set("uses_draw", e.target.checked)} />
               <span>{t("admin.catalog.draw")}</span>
+            </label>
+            <label className="qs-switch">
+              <input type="checkbox" checked={editing.requires_pro} onChange={(e) => set("requires_pro", e.target.checked)} />
+              <span>{t("admin.catalog.proOnly")}</span>
             </label>
             <label className="qs-switch">
               <input type="checkbox" checked={editing.is_active} onChange={(e) => set("is_active", e.target.checked)} />

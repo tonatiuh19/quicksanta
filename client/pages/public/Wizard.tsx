@@ -1,6 +1,7 @@
 /**
  * Onboarding wizard (/start): create an exchange in ~1 minute.
- * service → details → people → rules → account (OTP, skipped when signed in) → review → launch.
+ * service → design ("Create your own" only) → details → people → rules (draws only) → account (OTP, skipped when signed in) → review → launch.
+ * Pro-only services stay visible with a Pro badge; launching one on a Free workspace goes through the subscription.
  * Draft lives in Redux (persisted to localStorage), so the OTP round trip or a reload never loses work.
  * The tenant is created implicitly on launch.
  */
@@ -8,7 +9,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowLeft, ArrowRight, BookOpen, CalendarDays, Check, Cookie, Gift, ListChecks, MapPin, PartyPopper, Plus, Rocket, Send, Sparkles, Trash2, Users, Wallet, X,
+  ArrowLeft, ArrowRight, CalendarDays, PartyPopper, Check, Crown, Eye, EyeOff, Gift, Lock, MapPin, Plus, Rocket, Save, Send, Shuffle, Sparkles, Trash2, Users, Wallet, X,
 } from "lucide-react";
 import { parseParticipantLines, EMAIL_RE, normalizeEmail, type EventType } from "@shared/api";
 import { Brand, ErrorNote, formatBudget, formatDate, Spinner } from "@/components/kit";
@@ -18,25 +19,30 @@ import { Button } from "@/components/ui/button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchMe } from "@/store/slices/authSlice";
 import { fetchEventTypes } from "@/store/slices/catalogSlice";
-import { fetchPricing } from "@/store/slices/appSlice";
+import { deleteTemplate, fetchPricing, fetchTemplates } from "@/store/slices/appSlice";
+import { CUSTOM_COLORS, CUSTOM_COLOR_MAP, CUSTOM_ICONS, CUSTOM_ICON_MAP, SERVICE_ICON_MAP, gradientFor } from "@/components/customDesign";
 import CheckoutCard from "@/components/billing/CheckoutCard";
 import { formatMoney } from "@shared/api";
 import {
-  WIZARD_STEPS, addExclusion, addParticipants, goTo, launchWizard, patchDraft, removeExclusion, removeParticipant, resetWizard, wizardPeople, type WizardStep,
+  WIZARD_STEPS, addExclusion, addParticipants, draftUsesDraw, emptyDesign, goTo, launchWizard, patchDesign, patchDraft, removeExclusion, removeParticipant, resetWizard, wizardPeople, type WizardStep,
 } from "@/store/slices/wizardSlice";
 
-const ICONS: Record<string, typeof Gift> = { gift: Gift, party: PartyPopper, list: ListChecks, book: BookOpen, cookie: Cookie };
+const ICONS = SERVICE_ICON_MAP;
 const CURRENCIES = ["USD", "MXN", "EUR", "GBP", "CAD", "COP", "ARS", "CLP", "PEN", "BRL"];
 
 export function stepError(step: WizardStep, d: ReturnType<typeof useDraft>, type: EventType | undefined, peopleCount: number): string | null {
   if (step === "service" && !type) return "wizard.errors.pickService";
+  if (step === "design") {
+    if ((d.custom?.name ?? "").trim().length < 2) return "wizard.errors.customName";
+  }
   if (step === "details") {
     if (d.name.trim().length < 2) return "wizard.errors.name";
+    if (d.eventTypeSlug === "custom" && d.custom?.revealMode === "together" && !d.exchangeDate) return "validation.revealNeedsDate";
     if (d.budgetMin != null && d.budgetMax != null && d.budgetMin > d.budgetMax) return "validation.budgetRange";
   }
   if (step === "people") {
     if (d.includeMe && !d.organizerName.trim()) return "wizard.errors.organizerName";
-    const min = type?.uses_draw === false ? 1 : 3;
+    const min = draftUsesDraw(d, type) ? 3 : 1;
     if (peopleCount < min) return "wizard.errors.minPeople";
   }
   return null;
@@ -81,10 +87,26 @@ export default function Wizard() {
   const proMax = pricing?.pro_max_participants ?? 100;
   const needsPro = people.length > freeMax;
   const tooBig = people.length > proMax;
-  const plan = needsPro ? "pro" : d.plan ?? "free";
-  const price = pricing ? formatMoney(pricing.pro_price_cents, pricing.pro_currency, i18n.language.startsWith("es") ? "es-MX" : "en-US") : "$8.90";
-  const steps = WIZARD_STEPS.filter((s) => !(s === "account" && user) && !(s === "rules" && type && !type.uses_draw));
+  // The workspace the server will launch into (first active organizer workspace) — prefer the active one if it qualifies.
+  const organizerWs =
+    user?.memberships.find((m) => m.tenant_id === user.active_tenant_id && m.role === "organizer" && m.tenant_status === "active") ??
+    user?.memberships.find((m) => m.role === "organizer" && m.tenant_status === "active");
+  const workspacePro = Boolean(organizerWs && organizerWs.tenant_plan !== "free");
+  const typeNeedsPro = Boolean(type?.requires_pro);
+  const usesDraw = draftUsesDraw(d, type);
+  const plan = needsPro || typeNeedsPro ? "pro" : d.plan ?? "free";
+  const isCustom = d.eventTypeSlug === "custom";
+  const design = d.custom ?? emptyDesign();
+  const templates = useAppSelector((s) => s.app.templates);
+  const displayName = isCustom ? design.name || t("wizard.design.namePh") : type ? (es ? type.name_es : type.name_en) : "QuickSanta";
+  const price = pricing ? formatMoney(pricing.pro_price_cents, pricing.pro_currency, i18n.language.startsWith("es") ? "es-MX" : "en-US") : "…";
+  const steps = WIZARD_STEPS.filter((s) => !(s === "account" && user) && !(s === "rules" && !usesDraw) && !(s === "design" && !isCustom));
   const idx = Math.max(0, steps.indexOf(step));
+
+  useEffect(() => {
+    if (organizerWs && workspacePro) void dispatch(fetchTemplates());
+  }, [organizerWs?.tenant_id, workspacePro, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const next = () => {
     const err = stepError(step, d, type, people.length);
@@ -216,17 +238,59 @@ export default function Wizard() {
               <p className="qs-page-sub">{t("wizard.service.sub")}</p>
               {catalog.loading && !catalog.items.length ? <Spinner label={t("common.loading")} /> : null}
               <ErrorNote error={catalog.error} onRetry={() => void dispatch(fetchEventTypes())} />
+              {templates.length ? (
+                <div className="qs-templates">
+                  <p className="qs-kicker">
+                    <Save size={13} /> {t("wizard.design.yourTemplates")}
+                  </p>
+                  <div className="qs-template-row">
+                    {templates.map((tp) => {
+                      const TIcon = CUSTOM_ICON_MAP[tp.icon] ?? Sparkles;
+                      return (
+                        <div key={tp.id} className="qs-template" style={{ background: gradientFor(tp.color) }}>
+                          <button
+                            type="button"
+                            className="qs-template-use"
+                            onClick={() => {
+                              dispatch(
+                                patchDraft({
+                                  eventTypeSlug: "custom",
+                                  allowWishlists: tp.allow_wishlists,
+                                  budgetMin: tp.budget_min,
+                                  budgetMax: tp.budget_max,
+                                  currency: tp.currency,
+                                  custom: { name: tp.name, icon: tp.icon, color: tp.color, matchMode: tp.match_mode, themeRules: tp.theme_rules ?? "", revealMode: tp.reveal_mode },
+                                  saveTemplate: false,
+                                  exclusions: tp.match_mode === "draw" ? d.exclusions : [],
+                                }),
+                              );
+                              dispatch(goTo("design"));
+                            }}
+                          >
+                            <TIcon size={18} /> {tp.name}
+                          </button>
+                          <button type="button" className="qs-template-del" aria-label={t("common.removeX", { name: tp.name })} onClick={() => void dispatch(deleteTemplate(tp.id))}>
+                            <X size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <div className="qs-choice-grid" role="radiogroup" aria-label={t("wizard.service.title")}>
                 {catalog.items.map((et) => {
                   const Icon = ICONS[et.icon] ?? Gift;
                   const selected = et.slug === d.eventTypeSlug;
+                  const locked = et.requires_pro && !workspacePro;
+                  const custom = et.slug === "custom";
                   return (
                     <button
                       key={et.slug}
                       type="button"
                       role="radio"
                       aria-checked={selected}
-                      className={`qs-choice${selected ? " is-selected" : ""}`}
+                      className={`qs-choice${selected ? " is-selected" : ""}${custom ? " is-custom" : ""}${locked ? " is-locked" : ""}`}
                       onClick={() => dispatch(patchDraft({ eventTypeSlug: et.slug, exclusions: et.uses_draw ? d.exclusions : [] }))}
                       onDoubleClick={next}
                     >
@@ -234,11 +298,120 @@ export default function Wizard() {
                         <Icon size={22} />
                       </span>
                       <strong>{es ? et.name_es : et.name_en}</strong>
-                      <span>{es ? et.description_es : et.description_en}</span>
+                      <span className="qs-choice-desc">{es ? et.description_es : et.description_en}</span>
+                      {et.requires_pro ? (
+                        <span className={`qs-pro-tag${locked ? " is-locked" : ""}`}>
+                          {locked ? <Lock size={11} /> : <Crown size={11} />} Pro
+                        </span>
+                      ) : null}
                       {selected ? <Check className="qs-choice-check" size={18} /> : null}
                     </button>
                   );
                 })}
+              </div>
+              {type?.requires_pro && !workspacePro ? (
+                <p className="qs-fine qs-pro-note">
+                  <Crown size={14} /> {t("wizard.service.proNote", { price })}
+                </p>
+              ) : null}
+            </>
+          )}
+
+          {step === "design" && (
+            <>
+              <h2>{t("wizard.design.title")}</h2>
+              <p className="qs-page-sub">{t("wizard.design.sub")}</p>
+              <div className="qs-form">
+                <label className="qs-field">
+                  <span>{t("wizard.design.name")}</span>
+                  <input value={design.name} maxLength={80} onChange={(e) => dispatch(patchDesign({ name: e.target.value }))} placeholder={t("wizard.design.namePh")} autoFocus />
+                </label>
+                <div className="qs-field">
+                  <span>{t("wizard.design.icon")}</span>
+                  <div className="qs-icon-pick" role="radiogroup" aria-label={t("wizard.design.icon")}>
+                    {CUSTOM_ICONS.map((ic) => {
+                      const I = CUSTOM_ICON_MAP[ic];
+                      return (
+                        <button key={ic} type="button" role="radio" aria-checked={design.icon === ic} aria-label={ic} className={design.icon === ic ? "is-on" : ""} onClick={() => dispatch(patchDesign({ icon: ic }))}>
+                          <I size={18} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="qs-field">
+                  <span>{t("wizard.design.color")}</span>
+                  <div className="qs-color-pick" role="radiogroup" aria-label={t("wizard.design.color")}>
+                    {CUSTOM_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        role="radio"
+                        aria-checked={design.color === c}
+                        aria-label={t(`wizard.design.colors.${c}`)}
+                        className={design.color === c ? "is-on" : ""}
+                        style={{ background: `linear-gradient(135deg, ${CUSTOM_COLOR_MAP[c][0]}, ${CUSTOM_COLOR_MAP[c][1]})` }}
+                        onClick={() => dispatch(patchDesign({ color: c }))}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="qs-field">
+                  <span>{t("wizard.design.match")}</span>
+                  <div className="qs-mode-pick" role="radiogroup" aria-label={t("wizard.design.match")}>
+                    {(["draw", "none"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        role="radio"
+                        aria-checked={design.matchMode === m}
+                        className={`qs-mode${design.matchMode === m ? " is-on" : ""}`}
+                        onClick={() => {
+                          dispatch(patchDesign(m === "none" ? { matchMode: m, revealMode: "private" } : { matchMode: m }));
+                          if (m === "none") dispatch(patchDraft({ exclusions: [] }));
+                        }}
+                      >
+                        {m === "draw" ? <Shuffle size={18} /> : <Gift size={18} />}
+                        <strong>{t(`wizard.design.modes.${m}.title`)}</strong>
+                        <span>{t(`wizard.design.modes.${m}.body`)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {design.matchMode === "draw" ? (
+                  <div className="qs-field">
+                    <span>{t("wizard.design.reveal")}</span>
+                    <div className="qs-mode-pick" role="radiogroup" aria-label={t("wizard.design.reveal")}>
+                      {(["private", "together"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          role="radio"
+                          aria-checked={design.revealMode === m}
+                          className={`qs-mode${design.revealMode === m ? " is-on" : ""}`}
+                          onClick={() => dispatch(patchDesign({ revealMode: m }))}
+                        >
+                          {m === "private" ? <Eye size={18} /> : <EyeOff size={18} />}
+                          <strong>{t(`wizard.design.reveals.${m}.title`)}</strong>
+                          <span>{t(`wizard.design.reveals.${m}.body`)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <label className="qs-field">
+                  <span>{t("wizard.design.rules")}</span>
+                  <textarea rows={3} maxLength={500} value={design.themeRules} onChange={(e) => dispatch(patchDesign({ themeRules: e.target.value }))} placeholder={t("wizard.design.rulesPh")} />
+                </label>
+                <label className="qs-switch">
+                  <input type="checkbox" checked={Boolean(d.saveTemplate)} onChange={(e) => dispatch(patchDraft({ saveTemplate: e.target.checked }))} />
+                  <span>
+                    <Save size={14} /> {t("wizard.design.saveTemplate")}
+                  </span>
+                </label>
+                {d.saveTemplate && templates.some((tp) => tp.name.trim().toLowerCase() === design.name.trim().toLowerCase()) ? (
+                  <p className="qs-fine qs-warn">{t("wizard.design.templateOverwrite", { name: design.name })}</p>
+                ) : null}
               </div>
             </>
           )}
@@ -317,7 +490,7 @@ export default function Wizard() {
               <dl className="qs-review">
                 <div>
                   <dt>{t("wizard.steps.service")}</dt>
-                  <dd>{type ? (es ? type.name_es : type.name_en) : d.eventTypeSlug}</dd>
+                  <dd>{displayName}</dd>
                 </div>
                 <div>
                   <dt>{t("wizard.details.name")}</dt>
@@ -347,7 +520,7 @@ export default function Wizard() {
                   type="button"
                   role="radio"
                   aria-checked={plan === "free"}
-                  disabled={needsPro}
+                  disabled={needsPro || typeNeedsPro}
                   className={`qs-plan-opt${plan === "free" ? " is-selected" : ""}`}
                   onClick={() => dispatch(patchDraft({ plan: "free" }))}
                 >
@@ -373,6 +546,8 @@ export default function Wizard() {
                 </button>
               </div>
               {needsPro && !tooBig ? <p className="qs-fine qs-warn">{t("checkout.needsPro", { count: people.length, max: freeMax })}</p> : null}
+              {typeNeedsPro && !workspacePro ? <p className="qs-fine qs-warn">{t("wizard.review.proService", { name: displayName })}</p> : null}
+              {workspacePro && plan === "pro" ? <p className="qs-fine">{t("wizard.review.coveredByPro")}</p> : null}
               {tooBig ? (
                 <p className="qs-error" role="alert">
                   {t("checkout.enterprise", { max: proMax })}
@@ -397,7 +572,7 @@ export default function Wizard() {
               </Button>
               {step === "review" ? (
                 <Button className="qs-btn-primary qs-btn-launch" onClick={() => void launch()} disabled={launching || !user || tooBig}>
-                  <Rocket /> {launching ? t("wizard.review.launching") : plan === "pro" ? t("checkout.launchPay", { price }) : t("wizard.review.launch")}
+                  <Rocket /> {launching ? t("wizard.review.launching") : plan === "pro" && !workspacePro ? t("checkout.launchPay", { price }) : t("wizard.review.launch")}
                 </Button>
               ) : (
                 <Button className="qs-btn-primary" onClick={next}>
@@ -415,9 +590,13 @@ export default function Wizard() {
         </section>
 
         <aside className="qs-wizard-preview" aria-label={t("wizard.preview")}>
-          <div className="qs-ticket">
+          <div className="qs-ticket" style={isCustom ? { background: gradientFor(design.color) } : undefined}>
             <span className="qs-kicker">
-              <Sparkles size={13} /> {type ? (es ? type.name_es : type.name_en) : "QuickSanta"}
+              {isCustom ? (() => {
+                const I = CUSTOM_ICON_MAP[design.icon] ?? Sparkles;
+                return <I size={13} />;
+              })() : <Sparkles size={13} />}{" "}
+              {displayName}
             </span>
             <h3>{d.name || t("wizard.details.namePh")}</h3>
             <ul>
@@ -430,6 +609,7 @@ export default function Wizard() {
               <li>
                 <Users size={15} /> {t("wizard.review.people", { count: people.length })}
               </li>
+              {isCustom && design.themeRules ? <li className="qs-ticket-rules">“{design.themeRules}”</li> : null}
             </ul>
             <div className="qs-ticket-avatars">
               {people.slice(0, 8).map((p, i) => (

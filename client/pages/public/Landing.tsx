@@ -13,7 +13,9 @@ const SERVICES = [
   { key: "wishlist_exchange", icon: ListChecks },
   { key: "book_swap", icon: BookOpen },
   { key: "cookie_swap", icon: Cookie },
+  { key: "custom", icon: Wand2 },
 ];
+const FREE_SERVICES = new Set(["secret_santa", "white_elephant"]);
 
 const DEMO_PEOPLE = ["Ana", "Bruno", "Carla", "Diego", "Elena", "Fer"];
 /** A valid derangement for the hero demo (index → index). */
@@ -215,7 +217,8 @@ export default function Landing() {
         <h2>{t("landing.servicesTitle")}</h2>
         <div className="qs-service-grid">
           {SERVICES.map(({ key, icon: Icon }, i) => (
-            <Link key={key} to={`/start?type=${key}`} className="qs-service-card qs-reveal-up" style={{ animationDelay: `${i * 0.08}s` }}>
+            <Link key={key} to={`/start?type=${key}`} className={`qs-service-card qs-reveal-up${key === "custom" ? " is-custom" : ""}`} style={{ animationDelay: `${i * 0.08}s` }}>
+              {!FREE_SERVICES.has(key) ? <span className="qs-pro-tag">Pro</span> : null}
               <span className="qs-service-icon">
                 <Icon size={22} />
               </span>

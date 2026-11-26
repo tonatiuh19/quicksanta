@@ -61,7 +61,7 @@ export default function Dashboard() {
             {dashboard?.upcoming.length ? (
               <ul className="qs-list">
                 {dashboard.upcoming.map((e) => (
-                  <li key={e.id} onClick={() => navigate(`/app/events/${e.id}`)} className="is-clickable">
+                  <li key={e.id} onClick={() => navigate(`/app/events/${e.id}`)} onKeyDown={(k) => (k.key === "Enter" || k.key === " ") && navigate(`/app/events/${e.id}`)} role="link" tabIndex={0} className="is-clickable">
                     <div>
                       <strong>{e.name}</strong>
                       <span>
@@ -81,7 +81,7 @@ export default function Dashboard() {
           {myEvents.length ? (
             <ul className="qs-list">
               {myEvents.slice(0, 5).map((e) => (
-                <li key={e.id} onClick={() => navigate(`/app/my/${e.public_id}`)} className="is-clickable">
+                <li key={e.id} onClick={() => navigate(`/app/my/${e.public_id}`)} onKeyDown={(k) => (k.key === "Enter" || k.key === " ") && navigate(`/app/my/${e.public_id}`)} role="link" tabIndex={0} className="is-clickable">
                   <div>
                     <strong>{e.name}</strong>
                     <span>{e.tenant_name}</span>

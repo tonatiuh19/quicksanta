@@ -18,7 +18,7 @@ const overview = (over: Record<string, unknown> = {}) => ({
   invoices: [{ id: "in_1", number: "QS-0001", status: "paid", amount_cents: 890, currency: "usd", created: 1795000000, hosted_invoice_url: "https://inv", invoice_pdf: "https://pdf" }],
   ...over,
 });
-const me = user({ memberships: [{ tenant_id: 7, tenant_public_id: "T7", tenant_name: "Gomez Family", tenant_slug: "g", tenant_status: "active", role: "organizer" }] });
+const me = user({ memberships: [{ tenant_id: 7, tenant_public_id: "T7", tenant_name: "Gomez Family", tenant_slug: "g", tenant_status: "active", role: "organizer", tenant_plan: "free" }] });
 
 describe("Billing portal", () => {
   it("shows the Pro plan, renewal, usage meter, card and invoices", async () => {

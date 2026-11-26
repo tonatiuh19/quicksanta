@@ -50,7 +50,7 @@ is_already_applied_error() {
   local out="$1"
   # MySQL / TiDB duplicate schema objects on re-apply of legacy migrations
   grep -Eiq \
-    "Duplicate column name|Duplicate key name|Duplicate entry|already exists|Can't DROP|check that column/key exists|Unknown column" \
+    "Duplicate column name|Duplicate key name|already exists|Can't DROP|check that column/key exists" \
     <<<"$out"
 }
 
