@@ -1,0 +1,684 @@
+{
+  "common": {
+    "loading": "Cargando…",
+    "retry": "Reintentar",
+    "back": "Atrás",
+    "next": "Continuar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "save": "Guardar",
+    "saved": "Guardado",
+    "edit": "Editar",
+    "remove": "Quitar",
+    "removeX": "Quitar a {{name}}",
+    "viewAll": "Ver todo",
+    "language": "Idioma",
+    "confirm": "Confirmar"
+  },
+  "pf": {
+    "close": "Cerrar"
+  },
+  "portalAuth": {
+    "digitOf": "Dígito {{current}} de {{total}}",
+    "verifying": "Verificando…"
+  },
+  "grid": {
+    "search": "Buscar…",
+    "allOf": "Todos · {{label}}",
+    "empty": "Aún no hay nada aquí.",
+    "showing": "Mostrando {{from}}–{{to}} de {{total}}",
+    "pageOf": "Página {{page}} de {{pages}}",
+    "prev": "Página anterior",
+    "next": "Página siguiente"
+  },
+  "role": {
+    "owner": "Dueño",
+    "admin": "Administrador",
+    "organizer": "Organizador",
+    "participant": "Participante"
+  },
+  "plan": {
+    "free": "Gratis",
+    "pro": "Pro",
+    "enterprise": "Empresarial"
+  },
+  "status": {
+    "active": "Activo",
+    "suspended": "Suspendido",
+    "archived": "Archivado",
+    "draft": "Borrador",
+    "open": "Abierto",
+    "drawn": "Sorteado",
+    "completed": "Completado",
+    "cancelled": "Cancelado",
+    "invited": "Invitado",
+    "joined": "Confirmado",
+    "declined": "Rechazó",
+    "removed": "Eliminado",
+    "sent": "Enviado",
+    "failed": "Falló",
+    "dry_run": "Simulado",
+    "owner": "Dueño",
+    "admin": "Admin",
+    "organizer": "Organizador",
+    "participant": "Participante",
+    "free": "Gratis",
+    "pro": "Pro",
+    "enterprise": "Empresarial",
+    "pending_payment": "Pago pendiente",
+    "pending": "Pendiente",
+    "succeeded": "Pagado",
+    "refunded": "Reembolsado"
+  },
+  "services": {
+    "secret_santa": {
+      "name": "Amigo secreto",
+      "desc": "Cada quien recibe en secreto a alguien a quien regalar. Justo y privado."
+    },
+    "white_elephant": {
+      "name": "Elefante blanco",
+      "desc": "Trae un regalo divertido y roba e intercambia en la fiesta."
+    },
+    "wishlist_exchange": {
+      "name": "Intercambio por lista de deseos",
+      "desc": "Amigo secreto donde todos comparten su lista de deseos."
+    },
+    "book_swap": {
+      "name": "Intercambio de libros",
+      "desc": "Recibe a un lector y regálale un libro que le encante."
+    },
+    "cookie_swap": {
+      "name": "Intercambio de galletas",
+      "desc": "Hornea, trae y comparte."
+    }
+  },
+  "landing": {
+    "signIn": "Entrar",
+    "cta": "Crear intercambio",
+    "haveAccount": "Ya tengo cuenta",
+    "pill": "Gratis · Sin contraseñas · 60 segundos",
+    "subtitle": "Amigo secreto, elefante blanco, intercambio de libros y más. Invita a tu gente en un minuto, define las reglas y deja que QuickSanta haga un sorteo justo y privado.",
+    "servicesTitle": "Elige tu tipo de diversión",
+    "features": {
+      "fair": {
+        "title": "Sorteos justos",
+        "body": "Nadie se saca a sí mismo y puedes separar parejas o compañeros."
+      },
+      "passwordless": {
+        "title": "Sin contraseñas",
+        "body": "Entra con un código de 6 dígitos enviado a tu correo."
+      },
+      "private": {
+        "title": "Realmente secreto",
+        "body": "Solo tú ves a quién le regalas, ni siquiera el organizador."
+      }
+    },
+    "nav": {
+      "how": "Cómo funciona",
+      "pricing": "Precios"
+    },
+    "title1": "Intercambios de regalos,",
+    "title2": "con magia.",
+    "seeHow": "Ver cómo funciona",
+    "proof": {
+      "noPasswords": "Sin contraseñas",
+      "exclusions": "Parejas separadas",
+      "languages": "Español e inglés"
+    },
+    "demo": {
+      "ready": "6 amigos listos",
+      "shuffling": "Sorteando…",
+      "done": "¡Todos tienen pareja!"
+    },
+    "how": {
+      "kicker": "Cómo funciona",
+      "title": "De la idea a tu amigo secreto en 4 pasos",
+      "s1": {
+        "title": "Créalo en 60 segundos",
+        "body": "Elige un servicio, ponle nombre, fecha y presupuesto. El asistente te guía."
+      },
+      "s2": {
+        "title": "Invita a tu gente",
+        "body": "Pega una lista de correos. Cada quien recibe una invitación y entra con un código."
+      },
+      "s3": {
+        "title": "Sorteo justo e inteligente",
+        "body": "Un clic. Nadie se saca a sí mismo y las parejas o las del año pasado quedan separadas."
+      },
+      "s4": {
+        "title": "La gran revelación",
+        "body": "Cada persona voltea su tarjeta para ver a quién le regala y su lista de deseos."
+      }
+    },
+    "examples": {
+      "title": "Para todo tipo de grupos",
+      "cta": "Crear uno así",
+      "office": {
+        "tab": "🏢 Oficina",
+        "service": "Amigo secreto",
+        "name": "Intercambio Acme",
+        "people": "24 compañeros",
+        "budget": "20–30 USD",
+        "rule": "Los jefes no sacan a su equipo",
+        "story": "Recursos Humanos lo armó en un café, pegó la lista del equipo desde una hoja de cálculo y sorteó el viernes. El lunes todos sabían a quién regalar, con listas de deseos y sin papelitos por Zoom."
+      },
+      "family": {
+        "tab": "🎄 Familia",
+        "service": "Intercambio por lista de deseos",
+        "name": "Navidad Familia Gómez",
+        "people": "11 familiares",
+        "budget": "500–800 MXN",
+        "rule": "Las parejas nunca juntas",
+        "story": "Casa de la abuela, tres hogares y dos zonas horarias. Cada primo escribió su lista, las parejas quedaron separadas solas y la revelación fue en el celular de todos durante la cena."
+      },
+      "books": {
+        "tab": "📚 Club de lectura",
+        "service": "Intercambio de libros",
+        "name": "Lectores de Medianoche",
+        "people": "8 lectores",
+        "budget": "Un libro cada uno",
+        "rule": "Sin repetir parejas del año pasado",
+        "story": "El club hace un intercambio de libros cada diciembre. QuickSanta separa las parejas del año pasado y cada quien comparte su lista de 'libros que amo'."
+      }
+    },
+    "pricing": {
+      "kicker": "Precios",
+      "title": "Gratis para amigos. Poderoso para equipos.",
+      "popular": "Más popular",
+      "free": {
+        "name": "Gratis",
+        "price": "$0",
+        "per": "para siempre",
+        "desc": "Para familias y grupos de amigos.",
+        "features": [
+          "Hasta 20 personas por intercambio",
+          "Hasta 10 intercambios activos",
+          "Reglas de exclusión y listas de deseos",
+          "Invitaciones por correo y revelación"
+        ],
+        "cta": "Empezar gratis"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "$8.90",
+        "per": "por intercambio",
+        "desc": "Para oficinas y grandes celebraciones.",
+        "features": [
+          "Todo lo de Gratis",
+          "Hasta 100 personas por intercambio",
+          "Mejora cualquier intercambio en un clic",
+          "Pago seguro con tarjeta",
+          "Soporte prioritario"
+        ],
+        "cta": "Empezar con Pro"
+      },
+      "enterprise": {
+        "name": "Empresarial",
+        "price": "A medida",
+        "per": "",
+        "desc": "Para empresas con muchos equipos.",
+        "features": [
+          "Más de 100 personas",
+          "Intercambios ilimitados",
+          "Varios organizadores y espacios",
+          "Bitácora de auditoría y soporte dedicado"
+        ],
+        "cta": "Contáctanos"
+      }
+    },
+    "faq": {
+      "title": "¿Preguntas?",
+      "q1": "¿De verdad es gratis?",
+      "a1": "Sí. Los intercambios de hasta 20 personas son gratis. Los grupos más grandes (hasta 100) pagan $8.90 una sola vez por intercambio con Pro.",
+      "q2": "¿El organizador puede ver quién le tocó a quién?",
+      "a2": "No. Las asignaciones son privadas: cada quien solo ve la suya. El organizador solo ve quién ya la reveló.",
+      "q3": "¿Se necesita contraseña o app?",
+      "a3": "No. Todos entran con un código de 6 dígitos enviado a su correo, desde cualquier celular o computadora.",
+      "q4": "¿Puedo separar a las parejas?",
+      "a4": "Sí. Agrega reglas como 'Ana y Bruno nunca se sacan' y el sorteo siempre las respeta."
+    },
+    "final": {
+      "title": "¿Listo para el intercambio más fácil de tu vida?"
+    }
+  },
+  "auth": {
+    "title": "Bienvenido a QuickSanta",
+    "subtitle": "Entra o crea tu cuenta con un código de un solo uso.",
+    "email": "Correo",
+    "sendCode": "Enviarme un código",
+    "sending": "Enviando…",
+    "noPassword": "Sin contraseña. Te enviaremos un código de 6 dígitos.",
+    "sentTo": "Enviamos un código a {{email}}",
+    "code": "Código de 6 dígitos",
+    "yourName": "Tu nombre",
+    "changeEmail": "Cambiar correo",
+    "resend": "Reenviar código",
+    "resendIn": "Reenviar en {{s}}s",
+    "newHere": "¿Eres nuevo?",
+    "startWizard": "Crea un intercambio"
+  },
+  "shell": {
+    "menu": "Menú",
+    "closeMenu": "Cerrar menú",
+    "more": "Más",
+    "quickNav": "Navegación rápida",
+    "logout": "Cerrar sesión",
+    "workspace": "Espacio",
+    "workspaceTitle": "Mi espacio",
+    "commandCenter": "Centro de mando",
+    "openCommandCenter": "→ Centro de mando",
+    "openWorkspace": "→ Mi espacio"
+  },
+  "nav": {
+    "dashboard": "Inicio",
+    "myExchanges": "Mis intercambios",
+    "events": "Intercambios",
+    "members": "Miembros",
+    "workspaceSettings": "Ajustes del espacio",
+    "profile": "Perfil",
+    "sectionOverview": "General",
+    "sectionOrganize": "Organizar",
+    "sectionSetup": "Ajustes"
+  },
+  "dashboard": {
+    "hello": "Hola, {{name}}",
+    "subOrganizer": "Así van tus intercambios.",
+    "subParticipant": "Tus intercambios y asignaciones secretas.",
+    "newExchange": "Nuevo intercambio",
+    "upcoming": "Próximos intercambios",
+    "noUpcoming": "No hay intercambios activos",
+    "noWorkspace": "Aún no estás en ningún espacio",
+    "noWorkspaceBody": "Crea tu primer intercambio o abre un enlace de invitación.",
+    "kpi": {
+      "events": "Intercambios",
+      "limit": "Límite: {{max}} activos",
+      "open": "Abiertos",
+      "drawn": "Sorteados",
+      "people": "Personas",
+      "joined": "confirmados / invitados"
+    }
+  },
+  "events": {
+    "sub": "Busca, filtra y ordena todos los intercambios de este espacio.",
+    "col": {
+      "name": "Nombre",
+      "type": "Servicio",
+      "status": "Estado",
+      "date": "Fecha",
+      "people": "Personas",
+      "budget": "Presupuesto",
+      "created": "Creado"
+    }
+  },
+  "event": {
+    "draw": "Hacer el sorteo",
+    "resetDraw": "Reiniciar sorteo",
+    "complete": "Marcar completado",
+    "cancel": "Cancelar intercambio",
+    "rulesNeedPeople": "Agrega al menos dos personas para crear reglas.",
+    "drawnOk": "¡Sorteo listo! Notificamos a {{assigned}} personas.",
+    "resetOk": "Sorteo reiniciado. Puedes editar y sortear de nuevo.",
+    "completedOk": "Intercambio completado 🎉",
+    "cancelledOk": "Intercambio cancelado.",
+    "kpi": {
+      "people": "Personas",
+      "joined": "Confirmados",
+      "rules": "Reglas",
+      "revealed": "Revelados"
+    },
+    "tabs": {
+      "people": "Personas",
+      "rules": "Reglas",
+      "settings": "Detalles"
+    },
+    "confirm": {
+      "draw": {
+        "title": "¿Hacer el sorteo?",
+        "body": "Asignaremos en secreto a {{count}} personas y enviaremos un correo a todos. Se incluye a quienes aún no confirman.",
+        "cta": "Sortear ahora"
+      },
+      "reset": {
+        "title": "¿Reiniciar el sorteo?",
+        "body": "Se borrarán todas las asignaciones. Quien ya vio la suya recibirá otra.",
+        "cta": "Reiniciar"
+      },
+      "cancel": {
+        "title": "¿Cancelar este intercambio?",
+        "body": "Los participantes ya no lo verán.",
+        "cta": "Cancelar intercambio"
+      }
+    }
+  },
+  "people": {
+    "addAndInvite": "Agregar e invitar",
+    "addedToast": "Agregados {{added}}, invitados {{invited}}, omitidos {{skipped}} duplicados.",
+    "resend": "Reenviar invitación",
+    "resent": "Invitación reenviada.",
+    "remove": "Quitar",
+    "removed": "Persona eliminada.",
+    "someInvalid": "Algunas líneas no son correos válidos; corrígelas.",
+    "col": {
+      "name": "Nombre",
+      "email": "Correo",
+      "status": "Estado",
+      "wishlist": "Lista",
+      "joined": "Confirmó"
+    }
+  },
+  "members": {
+    "sub": "Todos en este espacio y su rol.",
+    "role": "Rol",
+    "lastLogin": "Último acceso",
+    "since": "Miembro desde"
+  },
+  "settings": {
+    "workspaceName": "Nombre del espacio"
+  },
+  "profile": {
+    "access": "Tus accesos"
+  },
+  "my": {
+    "sub": "Intercambios en los que participas.",
+    "none": "Aún no tienes intercambios",
+    "noneBody": "Abre un enlace de invitación para unirte.",
+    "reveal": "Revelar mi asignación",
+    "tapToReveal": "Toca para revelar",
+    "secret": "Asegúrate de que nadie esté viendo 👀",
+    "youGift": "Le regalas a",
+    "theirWishlist": "Su lista de deseos",
+    "noWishlist": "Aún sin lista. ¡Sorpréndele!",
+    "waiting": "Aún no se hace el sorteo",
+    "waitingBody": "Te avisaremos por correo cuando el organizador lo haga.",
+    "myWishlist": "Mi lista de deseos",
+    "wishlistHint": "Tu amigo secreto verá esto.",
+    "wishlistPh": "Tallas, colores favoritos, libros, cosas que te encantarían…"
+  },
+  "join": {
+    "hello": "¡Hola {{name}}! Estás invitado 🎁",
+    "signInTitle": "Confirma que eres tú",
+    "signInSub": "Entra con el correo invitado ({{email}}).",
+    "accept": "¡Me apunto!",
+    "decline": "No puedo",
+    "already": "Ya te uniste a este intercambio.",
+    "goToMine": "Ir a mis intercambios",
+    "switchAccount": "Usar otra cuenta"
+  },
+  "wizard": {
+    "exit": "Salir",
+    "progress": "Progreso",
+    "preview": "Vista previa",
+    "steps": {
+      "service": "Servicio",
+      "details": "Detalles",
+      "people": "Personas",
+      "rules": "Reglas",
+      "account": "Cuenta",
+      "review": "Lanzar"
+    },
+    "service": {
+      "title": "¿Qué vamos a celebrar?",
+      "sub": "Elige el tipo de intercambio. Puedes crear los que quieras."
+    },
+    "details": {
+      "title": "Los detalles",
+      "sub": "Ponle nombre, elige fecha y acuerden un presupuesto.",
+      "name": "Nombre del intercambio",
+      "namePh": "Navidad en familia 2026",
+      "date": "Fecha del intercambio",
+      "location": "Dónde",
+      "locationPh": "Casa de la abuela, Zoom…",
+      "budget": "Presupuesto",
+      "min": "Mín",
+      "max": "Máx",
+      "currency": "Moneda",
+      "description": "Mensaje para todos",
+      "descriptionPh": "Código de vestimenta, tema, reglas…",
+      "wishlists": "Permitir listas de deseos"
+    },
+    "people": {
+      "title": "¿Quiénes participan?",
+      "sub": "Agrega personas una por una o pega una lista. Recibirán una invitación por correo.",
+      "includeMe": "Yo también participo",
+      "organizerName": "Tu nombre",
+      "name": "Nombre",
+      "email": "Correo",
+      "add": "Agregar",
+      "pasteList": "Pegar una lista",
+      "addAll": "Agregar todos",
+      "invalidLines": "{{count}} línea(s) sin correo válido quedaron en el cuadro.",
+      "you": "Tú",
+      "youHint": "(tu correo de acceso)"
+    },
+    "rules": {
+      "title": "¿Alguna regla?",
+      "sub": "Separa parejas, compañeros o las parejas del año pasado. Opcional.",
+      "giver": "Persona",
+      "receiver": "No puede recibir a",
+      "bothWays": "En ambos sentidos",
+      "add": "Agregar regla",
+      "none": "Sin reglas: cualquiera puede tocarle a cualquiera (excepto a sí mismo).",
+      "never": "nunca juntos"
+    },
+    "account": {
+      "title": "Último paso: tu correo",
+      "sub": "Te enviaremos un código para que solo tú administres este intercambio. Sin contraseña."
+    },
+    "review": {
+      "title": "Listo para lanzar 🚀",
+      "sub": "Revisa y envía las invitaciones.",
+      "people": "{{count}} personas",
+      "rules": "{{count}} regla(s)",
+      "sendInvites": "Enviar invitaciones ahora",
+      "launch": "Lanzar intercambio",
+      "launching": "Lanzando…"
+    },
+    "done": {
+      "title": "¡Tu intercambio está listo!",
+      "body": "Enviamos {{count}} invitación(es). Haz el sorteo cuando todos estén dentro.",
+      "manage": "Administrar intercambio",
+      "dashboard": "Ir al inicio"
+    },
+    "errors": {
+      "pickService": "Elige un servicio para continuar.",
+      "name": "Ponle nombre al intercambio (2+ caracteres).",
+      "organizerName": "Dinos tu nombre.",
+      "minPeople": "Agrega al menos {{min}} personas en total.",
+      "personName": "Agrega el nombre de la persona."
+    }
+  },
+  "admin": {
+    "nav": {
+      "overview": "Resumen",
+      "tenants": "Clientes",
+      "users": "Usuarios",
+      "events": "Intercambios",
+      "emails": "Correos",
+      "audit": "Auditoría",
+      "catalog": "Catálogo de servicios",
+      "settings": "Ajustes de plataforma",
+      "sectionOverview": "General",
+      "sectionTenants": "Clientes y personas",
+      "sectionActivity": "Actividad",
+      "sectionPlatform": "Plataforma",
+      "payments": "Pagos"
+    },
+    "overview": {
+      "title": "Centro de control",
+      "sub": "Todos los clientes, usuarios e intercambios de QuickSanta.",
+      "signups": "Registros (14 días)",
+      "byType": "Intercambios por servicio",
+      "recentTenants": "Clientes recientes",
+      "activity": "Actividad reciente"
+    },
+    "kpi": {
+      "tenants": "Clientes",
+      "active": "{{n}} activos",
+      "users": "Usuarios",
+      "events": "Intercambios",
+      "openDrawn": "{{open}} abiertos · {{drawn}} sorteados",
+      "participants": "Participantes",
+      "emails": "Correos (7d)",
+      "failures": "{{n}} fallidos",
+      "revenue": "Ingresos",
+      "revenue30": "{{amount}} últimos 30d · {{n}} Pro"
+    },
+    "tenants": {
+      "sub": "Administra cada espacio: estado, plan y límites.",
+      "search": "Busca nombre, slug o correo del dueño…",
+      "controls": "Controles",
+      "maxEvents": "Máx. intercambios activos",
+      "maxParticipants": "Máx. personas por intercambio",
+      "saveLimits": "Guardar límites",
+      "col": {
+        "name": "Cliente",
+        "owner": "Dueño",
+        "status": "Estado",
+        "plan": "Plan",
+        "members": "Miembros",
+        "events": "Intercambios",
+        "created": "Creado"
+      }
+    },
+    "users": {
+      "sub": "Todas las cuentas. Los dueños otorgan roles de plataforma.",
+      "platformRole": "Rol de plataforma",
+      "noRole": "— ninguno —",
+      "workspaces": "Espacios",
+      "suspend": "Suspender",
+      "reactivate": "Reactivar",
+      "grant": "Dar acceso a plataforma",
+      "grantHint": "Entrarán con un código enviado a este correo."
+    },
+    "events": {
+      "sub": "Todos los intercambios de todos los clientes.",
+      "tenant": "Cliente"
+    },
+    "emails": {
+      "sub": "Cada correo de código, invitación y asignación.",
+      "when": "Cuándo",
+      "to": "Para",
+      "template": "Plantilla",
+      "error": "Error",
+      "tpl": {
+        "otp": "Código de acceso",
+        "invite": "Invitación",
+        "assignment": "Resultado del sorteo"
+      }
+    },
+    "audit": {
+      "sub": "Quién hizo qué y cuándo.",
+      "action": "Acción",
+      "actor": "Actor",
+      "entity": "Entidad",
+      "details": "Detalles"
+    },
+    "catalog": {
+      "sub": "Los servicios que pueden usar los clientes. Agrega nuevos formatos cuando quieras.",
+      "new": "Nuevo servicio",
+      "draw": "Usa sorteo secreto",
+      "noDraw": "Sin sorteo",
+      "usage": "{{n}} intercambios",
+      "icon": "Ícono",
+      "order": "Orden"
+    },
+    "settings": {
+      "version": "Versión en producción {{v}}",
+      "ownerOnly": "Solo los dueños pueden cambiar estos ajustes.",
+      "signups_enabled": "Permitir registro de nuevos clientes",
+      "session_days": "Duración de sesión (días)",
+      "default_max_events": "Máx. de intercambios activos por defecto",
+      "default_max_participants": "Máx. de personas por intercambio por defecto",
+      "free_max_participants": "Plan gratis: máx. personas por intercambio",
+      "pro_max_participants": "Plan Pro: máx. personas por intercambio",
+      "pro_price_cents": "Precio Pro por intercambio (centavos, ej. 890 = $8.90)"
+    },
+    "payments": {
+      "sub": "Todos los pagos Pro, filtrados y ordenados en el servidor.",
+      "amount": "Monto",
+      "payer": "Pagó",
+      "card": "Tarjeta"
+    }
+  },
+  "errors": {
+    "server": "Algo salió mal. Intenta de nuevo.",
+    "notFound": "No encontrado.",
+    "unauthorized": "Vuelve a iniciar sesión.",
+    "forbidden": "No tienes acceso a esto.",
+    "duplicate": "Eso ya existe.",
+    "invalidReference": "Referencia inválida.",
+    "tooMany": "Demasiados intentos. Espera unos minutos.",
+    "tooLarge": "Solicitud demasiado grande.",
+    "badOrigin": "Solicitud bloqueada.",
+    "otpInvalid": "Ese código es incorrecto o expiró.",
+    "otpSendFailed": "No pudimos enviar el correo. Intenta de nuevo.",
+    "authLocked": "Demasiados códigos incorrectos. Pide uno nuevo.",
+    "accountSuspended": "Esta cuenta está suspendida.",
+    "signupsDisabled": "Los registros están pausados.",
+    "noTenantAccess": "No eres miembro de este espacio.",
+    "tenantSuspended": "Este espacio está suspendido. Contacta a soporte.",
+    "eventLimit": "Alcanzaste tu límite de intercambios activos.",
+    "participantLimit": "Demasiadas personas para este intercambio (máx. {{max}}).",
+    "alreadyDrawn": "El sorteo ya se hizo.",
+    "notDrawn": "Aún no se hace el sorteo.",
+    "eventClosed": "Este intercambio está cerrado.",
+    "drawNotSupported": "Este servicio no usa sorteo.",
+    "inviteInvalid": "Este enlace de invitación no es válido o expiró.",
+    "inviteWrongAccount": "Esta invitación se envió a {{expected}}. Entra con ese correo.",
+    "participantRemoved": "Esa persona fue eliminada.",
+    "emailFailed": "Falló el envío del correo.",
+    "cannotChangeSelf": "No puedes cambiar tu propio acceso.",
+    "lastOwner": "Debe haber al menos un dueño.",
+    "lastOrganizer": "Un espacio necesita al menos un organizador.",
+    "paymentsUnavailable": "Los pagos no están disponibles ahora. Intenta más tarde.",
+    "badSignature": "Firma inválida.",
+    "needsPro": "Este intercambio necesita Pro: el plan gratis permite hasta {{free_max}} personas.",
+    "paymentRequired": "Primero completa el pago.",
+    "invalidTransition": "Ese cambio de estado no está permitido.",
+    "alreadyPro": "Este intercambio ya es Pro.",
+    "paymentMismatch": "Ese pago no corresponde a este intercambio.",
+    "paymentNotCompleted": "El pago no se completó."
+  },
+  "validation": {
+    "invalid": "Revisa los campos.",
+    "invalidId": "Id inválido.",
+    "invalidJson": "Solicitud inválida.",
+    "email": "Ingresa un correo válido.",
+    "budgetRange": "El mínimo no puede ser mayor que el máximo.",
+    "eventType": "Elige un servicio válido.",
+    "minParticipants": "Se necesitan al menos {{min}} personas.",
+    "exclusion": "Esa regla no es válida.",
+    "drawImpossible": "Con estas reglas no hay sorteo posible. Quita una regla o agrega personas."
+  },
+  "checkout": {
+    "kicker": "Intercambio Pro",
+    "heading": "Activa Pro para este intercambio",
+    "sub": "Ya son {{count}} personas. Paga una vez y abriremos el intercambio y enviaremos todas las invitaciones.",
+    "title": "Paga {{price}} de forma segura",
+    "lead": "Pago único para “{{name}}”. Sin suscripción.",
+    "cardNumber": "Número de tarjeta",
+    "expiry": "Vencimiento",
+    "cvc": "CVC",
+    "cardHolder": "Titular",
+    "pay": "Pagar {{price}}",
+    "paying": "Procesando…",
+    "paid": "¡Pagado!",
+    "trustEncrypted": "Cifrado por Stripe",
+    "trustNeverStored": "Nunca vemos ni guardamos tu tarjeta",
+    "successTitle": "Pago recibido. ¡Pro activado! 🎉",
+    "successToast": "Pro activado: invitaciones enviadas y espacio para más personas.",
+    "later": "Pagar después (el intercambio queda cerrado hasta pagar)",
+    "planLabel": "Plan",
+    "upTo": "Hasta {{count}} personas",
+    "needsPro": "{{count}} personas superan el límite gratis de {{max}}. Este intercambio será Pro.",
+    "enterprise": "¿Más de {{max}} personas? Eso es Empresarial. Contáctanos y lo configuramos.",
+    "launchPay": "Lanzar y pagar {{price}}",
+    "pendingTitle": "Pago pendiente",
+    "pendingBody": "Paga {{price}} para abrir este intercambio y enviar las invitaciones.",
+    "payNow": "Pagar {{price}}",
+    "upgradeTitle": "{{used}}/{{max}} personas en el plan gratis",
+    "upgradeBody": "Mejora este intercambio a Pro para hasta {{count}} personas · {{price}} una vez.",
+    "upgrade": "Mejorar a Pro",
+    "proActive": "Intercambio Pro · hasta {{max}} personas",
+    "modalTitle": "Mejorar a Pro"
+  }
+}

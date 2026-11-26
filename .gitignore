@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependencies (npm only: never commit pnpm/yarn lockfiles)
+node_modules
+pnpm-lock.yaml
+yarn.lock
+
+# Build output
+dist
+dist-ssr
+*.local
+
+# Environment variables — .env.example stays tracked (negation must come last)
+.env
+.env.*
+.env*.local
+!.env.example
+
+# Secrets / keys
+*.pem
+*.key
+*.p12
+*credentials*.json
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.sw?
+
+# Vercel
+.vercel
+
+# Agent / tool scratch
+.claude/settings.local.json
+mobile-audit/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Test coverage / reporter state
+coverage
+.vitest-*
+
+# Playwright
+test-results/
+playwright-report/

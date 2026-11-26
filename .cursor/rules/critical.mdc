@@ -1,0 +1,24 @@
+---
+description: Critical QuickSanta project rules from AGENTS.md — always apply
+alwaysApply: true
+---
+
+# Critical Rules (NO EXCEPTIONS)
+
+- **npm only** — never pnpm or yarn (no `pnpm-lock.yaml` / `yarn.lock`; `.npmrc` has `legacy-peer-deps=true`)
+- **Schema first**: always check `database/schema.sql` before any SQL; never assume column names
+- **Never edit `database/schema.sql` directly for schema changes** — write a migration in `database/migrations/YYYYMMDD_HHMMSS_description.sql`, apply it (`npm run db:migrate`), then update `schema.sql` to match
+- **Multi-tenant always**: every tenant-owned table has `tenant_id`; every query in `/api/app/*` filters by `tenant_id` from `requireTenant()` (never from the request body). Command Center (`/api/admin/*`) uses `requirePlatform(perm)`.
+- **Roles**: platform `owner` | `admin` (Command Center) and tenant `organizer` | `participant`. The permission matrix lives in `shared/api.ts` and is mirrored inline in `api/index.ts` (drift test: `api/permissions.test.ts`). Never hard-code role checks in components — use `platformCan` / `tenantCan` / nav `perm` / `roles`.
+- **API monolith**: all runtime API logic stays **inline** in `api/index.ts` (Vercel serverless). `import type` only from `shared/`. Enforced by `npm run check:api-inline` (deploy preflight)
+- **Passwordless only**: login = email OTP (hashed, 10 min TTL, 5 attempts, atomic consume). Never add passwords or JWTs; sessions are opaque DB tokens in an HttpOnly cookie
+- **Redux only for data**: never axios/fetch in components; use `createApiThunk` in slices; components only dispatch + select
+- **Grids are server-side**: every list uses `ServerGrid` + a `createGridSlice` entry + `parseGridQuery` on the API (whitelisted sort/filter, escaped search, paging). Never sort/filter/paginate in the browser
+- **Swagger (always with API changes)**: any change to `api/index.ts` routes or shapes → **update `api/swagger.yaml` in the same change**
+- **DESIGN_SYSTEM.md** updated with any UI change (tokens, components, layout patterns)
+- **i18n**: every user-facing string in EN **and** ES (`client/locales/{en,es}/translation.json`); API errors are i18n keys (`errors.*`, `validation.*`). Enforced by `client/i18n.spec.ts`
+- **No long dashes (—) joining sentences in customer copy** (emails, public pages). A lone "—" as an empty placeholder is fine
+- **Tests & local QA: never send real email.** `VITEST=true` → email is dry-run. Integration fixtures use `qsit-<suite>-<ts>-…@example.com` and are purged (`api/testDbCleanup.ts`)
+- **Fix root causes** — never patch around type errors or bugs
+- **No breaking changes**
+- **Mobile (mandatory — see `mobile-responsive.mdc`)**: everything fits ~320px+ with no document horizontal scroll. Validate at ~320px and ~375px before finishing UI work

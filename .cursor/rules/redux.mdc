@@ -1,0 +1,34 @@
+---
+description: Redux data fetching — never call APIs from components
+globs: client/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Redux & Data Fetching
+
+**ALL data fetching in Redux slices via `createApiThunk` (`client/lib/portalThunk.ts`) + the shared `api` axios instance. NEVER in components.**
+
+```typescript
+// ✅ slice
+export const fetchData = createApiThunk("slice/fetchData", async () => (await api.get("/endpoint")).data);
+
+// ✅ component
+dispatch(fetchData());
+const { data, loading } = useAppSelector((s) => s.mySlice);
+```
+
+```typescript
+// ❌ NEVER
+useEffect(() => {
+  axios.get("/api/...").then((res) => setData(res.data));
+}, []);
+```
+
+- Hooks: `useAppDispatch` / `useAppSelector` from `client/store/hooks.ts`
+- Axios only from slices — never raw `fetch` for app APIs
+- Surface errors with `formatAxiosError` from `client/lib/api.ts` in `rejectWithValue`
+- Shared state belongs in the store, not component-local state
+- `createApiThunk` turns API errors into `rejectWithValue(i18nKey)` and dispatches `sessionExpired()` on 401
+- One-off results used by a single screen may use `dispatch(thunk(arg)).unwrap()` + local state — the request still goes through a slice thunk
+- Grids: add one line to `client/store/slices/grids.ts` (`createGridSlice`) and render `<ServerGrid grid="…">`
+- `X-Tenant-Id` is set automatically by `client/lib/api.ts` from the active workspace for `/app/*` calls

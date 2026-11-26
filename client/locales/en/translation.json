@@ -1,0 +1,684 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "back": "Back",
+    "next": "Continue",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "saved": "Saved",
+    "edit": "Edit",
+    "remove": "Remove",
+    "removeX": "Remove {{name}}",
+    "viewAll": "View all",
+    "language": "Language",
+    "confirm": "Confirm"
+  },
+  "pf": {
+    "close": "Close"
+  },
+  "portalAuth": {
+    "digitOf": "Digit {{current}} of {{total}}",
+    "verifying": "Verifying…"
+  },
+  "grid": {
+    "search": "Search…",
+    "allOf": "All · {{label}}",
+    "empty": "Nothing here yet.",
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "prev": "Previous page",
+    "next": "Next page"
+  },
+  "role": {
+    "owner": "Owner",
+    "admin": "Admin",
+    "organizer": "Organizer",
+    "participant": "Participant"
+  },
+  "plan": {
+    "free": "Free",
+    "pro": "Pro",
+    "enterprise": "Enterprise"
+  },
+  "status": {
+    "active": "Active",
+    "suspended": "Suspended",
+    "archived": "Archived",
+    "draft": "Draft",
+    "open": "Open",
+    "drawn": "Drawn",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "invited": "Invited",
+    "joined": "Joined",
+    "declined": "Declined",
+    "removed": "Removed",
+    "sent": "Sent",
+    "failed": "Failed",
+    "dry_run": "Dry run",
+    "owner": "Owner",
+    "admin": "Admin",
+    "organizer": "Organizer",
+    "participant": "Participant",
+    "free": "Free",
+    "pro": "Pro",
+    "enterprise": "Enterprise",
+    "pending_payment": "Awaiting payment",
+    "pending": "Pending",
+    "succeeded": "Paid",
+    "refunded": "Refunded"
+  },
+  "services": {
+    "secret_santa": {
+      "name": "Secret Santa",
+      "desc": "Everyone secretly draws someone to gift. Fair, private, with exclusions."
+    },
+    "white_elephant": {
+      "name": "White Elephant",
+      "desc": "Bring one fun gift, then steal and swap at the party."
+    },
+    "wishlist_exchange": {
+      "name": "Wishlist Exchange",
+      "desc": "Secret Santa where everyone shares a wishlist first."
+    },
+    "book_swap": {
+      "name": "Book Swap",
+      "desc": "Draw a reader and gift a book they'll love."
+    },
+    "cookie_swap": {
+      "name": "Cookie Swap",
+      "desc": "Bake, bring, share. Track who brings what."
+    }
+  },
+  "landing": {
+    "signIn": "Sign in",
+    "cta": "Start an exchange",
+    "haveAccount": "I already have an account",
+    "pill": "Free · No passwords · 60 seconds",
+    "subtitle": "Secret Santa, white elephant, book swaps and more. Invite your people in a minute, set the rules, and let QuickSanta run a fair, private draw for you.",
+    "servicesTitle": "Pick your kind of fun",
+    "features": {
+      "fair": {
+        "title": "Fair draws",
+        "body": "Nobody draws themselves, and couples or roommates can be kept apart."
+      },
+      "passwordless": {
+        "title": "No passwords",
+        "body": "Sign in with a 6-digit code sent to your email."
+      },
+      "private": {
+        "title": "Truly secret",
+        "body": "Only you see who you gift, not even the organizer."
+      }
+    },
+    "nav": {
+      "how": "How it works",
+      "pricing": "Pricing"
+    },
+    "title1": "Gift exchanges,",
+    "title2": "made magical.",
+    "seeHow": "See how it works",
+    "proof": {
+      "noPasswords": "No passwords",
+      "exclusions": "Couples kept apart",
+      "languages": "English & Spanish"
+    },
+    "demo": {
+      "ready": "6 friends ready",
+      "shuffling": "Shuffling…",
+      "done": "Everyone matched!"
+    },
+    "how": {
+      "kicker": "How it works",
+      "title": "From idea to secret match in 4 steps",
+      "s1": {
+        "title": "Create in 60 seconds",
+        "body": "Pick a service, name it, set a date and a budget. Our wizard guides you."
+      },
+      "s2": {
+        "title": "Invite your people",
+        "body": "Paste a list of emails. Everyone gets a festive invite and joins with one code."
+      },
+      "s3": {
+        "title": "Fair, smart draw",
+        "body": "One click. Nobody gets themselves, and couples or last year's pairs stay apart."
+      },
+      "s4": {
+        "title": "The big reveal",
+        "body": "Each person flips their card to see who they gift, plus that person's wishlist."
+      }
+    },
+    "examples": {
+      "title": "Made for every kind of group",
+      "cta": "Create one like this",
+      "office": {
+        "tab": "🏢 Office party",
+        "service": "Secret Santa",
+        "name": "Acme Holiday Swap",
+        "people": "24 coworkers",
+        "budget": "20–30 USD",
+        "rule": "Managers never draw their own team",
+        "story": "HR set it up during a coffee break, pasted the team list from a spreadsheet and ran the draw on Friday. Everyone found their match by Monday, with wishlists, and nobody had to pull names from a hat over Zoom."
+      },
+      "family": {
+        "tab": "🎄 Family",
+        "service": "Wishlist Exchange",
+        "name": "Gómez Family Christmas",
+        "people": "11 relatives",
+        "budget": "500–800 MXN",
+        "rule": "Couples never paired together",
+        "story": "Abuela's house, three households, two time zones. Each cousin wrote a wishlist, couples were kept apart automatically, and the reveal happened on everyone's phone at dinner."
+      },
+      "books": {
+        "tab": "📚 Book club",
+        "service": "Book Swap",
+        "name": "Midnight Readers",
+        "people": "8 readers",
+        "budget": "One book each",
+        "rule": "Last year's pairs excluded",
+        "story": "The club runs a book swap every December. QuickSanta remembers who read what, keeps last year's pairs apart, and everyone shares a 'books I love' wishlist."
+      }
+    },
+    "pricing": {
+      "kicker": "Pricing",
+      "title": "Free for friends. Powerful for teams.",
+      "popular": "Most popular",
+      "free": {
+        "name": "Free",
+        "price": "$0",
+        "per": "forever",
+        "desc": "For families and friend groups.",
+        "features": [
+          "Up to 20 people per exchange",
+          "Up to 10 active exchanges",
+          "Exclusion rules & wishlists",
+          "Email invites & reveal"
+        ],
+        "cta": "Start free"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "$8.90",
+        "per": "per exchange",
+        "desc": "For offices and big celebrations.",
+        "features": [
+          "Everything in Free",
+          "Up to 100 people per exchange",
+          "Upgrade any exchange in one click",
+          "Secure card checkout",
+          "Priority support"
+        ],
+        "cta": "Start with Pro"
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "price": "Custom",
+        "per": "",
+        "desc": "For companies running many teams.",
+        "features": [
+          "More than 100 people",
+          "Unlimited exchanges",
+          "Multiple organizers & workspaces",
+          "Audit log & dedicated support"
+        ],
+        "cta": "Contact us"
+      }
+    },
+    "faq": {
+      "title": "Questions?",
+      "q1": "Is it really free?",
+      "a1": "Yes. Exchanges with up to 20 people are free. Bigger groups (up to 100) pay $8.90 once per exchange with Pro.",
+      "q2": "Can the organizer see who got whom?",
+      "a2": "No. Matches are private: only each participant sees their own. Organizers just see who has revealed.",
+      "q3": "Do people need a password or an app?",
+      "a3": "No. Everyone signs in with a 6-digit code sent to their email, on any phone or computer.",
+      "q4": "Can I keep couples apart?",
+      "a4": "Yes. Add rules like 'Ana and Bruno never draw each other' and the draw always respects them."
+    },
+    "final": {
+      "title": "Ready to make this year's exchange the easiest ever?"
+    }
+  },
+  "auth": {
+    "title": "Welcome to QuickSanta",
+    "subtitle": "Sign in or create your account with a one-time code.",
+    "email": "Email",
+    "sendCode": "Email me a code",
+    "sending": "Sending…",
+    "noPassword": "No password needed. We'll email you a 6-digit code.",
+    "sentTo": "We sent a code to {{email}}",
+    "code": "6-digit code",
+    "yourName": "Your name",
+    "changeEmail": "Change email",
+    "resend": "Resend code",
+    "resendIn": "Resend in {{s}}s",
+    "newHere": "New here?",
+    "startWizard": "Start an exchange"
+  },
+  "shell": {
+    "menu": "Menu",
+    "closeMenu": "Close menu",
+    "more": "More",
+    "quickNav": "Quick navigation",
+    "logout": "Log out",
+    "workspace": "Workspace",
+    "workspaceTitle": "Workspace",
+    "commandCenter": "Command Center",
+    "openCommandCenter": "→ Command Center",
+    "openWorkspace": "→ My workspace"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "myExchanges": "My exchanges",
+    "events": "Exchanges",
+    "members": "Members",
+    "workspaceSettings": "Workspace settings",
+    "profile": "Profile",
+    "sectionOverview": "Overview",
+    "sectionOrganize": "Organize",
+    "sectionSetup": "Setup"
+  },
+  "dashboard": {
+    "hello": "Hi, {{name}}",
+    "subOrganizer": "Here's how your exchanges are going.",
+    "subParticipant": "Your exchanges and secret matches.",
+    "newExchange": "New exchange",
+    "upcoming": "Upcoming exchanges",
+    "noUpcoming": "No active exchanges",
+    "noWorkspace": "You're not in any workspace yet",
+    "noWorkspaceBody": "Start your first exchange or open an invitation link.",
+    "kpi": {
+      "events": "Exchanges",
+      "limit": "Limit: {{max}} active",
+      "open": "Open",
+      "drawn": "Drawn",
+      "people": "People",
+      "joined": "joined / invited"
+    }
+  },
+  "events": {
+    "sub": "Search, filter and sort every exchange in this workspace.",
+    "col": {
+      "name": "Name",
+      "type": "Service",
+      "status": "Status",
+      "date": "Date",
+      "people": "People",
+      "budget": "Budget",
+      "created": "Created"
+    }
+  },
+  "event": {
+    "draw": "Run the draw",
+    "resetDraw": "Reset draw",
+    "complete": "Mark completed",
+    "cancel": "Cancel exchange",
+    "rulesNeedPeople": "Add at least two people to create rules.",
+    "drawnOk": "Draw done! {{assigned}} people were notified by email.",
+    "resetOk": "Draw reset. You can edit people and run it again.",
+    "completedOk": "Exchange completed 🎉",
+    "cancelledOk": "Exchange cancelled.",
+    "kpi": {
+      "people": "People",
+      "joined": "Joined",
+      "rules": "Rules",
+      "revealed": "Revealed"
+    },
+    "tabs": {
+      "people": "People",
+      "rules": "Rules",
+      "settings": "Details"
+    },
+    "confirm": {
+      "draw": {
+        "title": "Run the draw?",
+        "body": "We'll secretly assign {{count}} people and email everyone. Invited people who haven't joined are included.",
+        "cta": "Draw now"
+      },
+      "reset": {
+        "title": "Reset the draw?",
+        "body": "All assignments will be deleted. People who already saw their match will get a new one.",
+        "cta": "Reset"
+      },
+      "cancel": {
+        "title": "Cancel this exchange?",
+        "body": "Participants will no longer see it.",
+        "cta": "Cancel exchange"
+      }
+    }
+  },
+  "people": {
+    "addAndInvite": "Add & invite people",
+    "addedToast": "Added {{added}}, invited {{invited}}, skipped {{skipped}} duplicates.",
+    "resend": "Resend invite",
+    "resent": "Invitation sent again.",
+    "remove": "Remove",
+    "removed": "Person removed.",
+    "someInvalid": "Some lines aren't valid emails; fix them and add again.",
+    "col": {
+      "name": "Name",
+      "email": "Email",
+      "status": "Status",
+      "wishlist": "Wishlist",
+      "joined": "Joined"
+    }
+  },
+  "members": {
+    "sub": "Everyone in this workspace and their role.",
+    "role": "Role",
+    "lastLogin": "Last login",
+    "since": "Member since"
+  },
+  "settings": {
+    "workspaceName": "Workspace name"
+  },
+  "profile": {
+    "access": "Your access"
+  },
+  "my": {
+    "sub": "Exchanges you're part of.",
+    "none": "No exchanges yet",
+    "noneBody": "Open an invitation link to join one.",
+    "reveal": "Reveal my match",
+    "tapToReveal": "Tap to reveal",
+    "secret": "Make sure nobody's looking 👀",
+    "youGift": "You're gifting",
+    "theirWishlist": "Their wishlist",
+    "noWishlist": "No wishlist yet. Surprise them!",
+    "waiting": "The draw hasn't happened yet",
+    "waitingBody": "We'll email you as soon as the organizer runs it.",
+    "myWishlist": "My wishlist",
+    "wishlistHint": "Your Secret Santa will see this.",
+    "wishlistPh": "Sizes, favorite colors, books, things you'd love…"
+  },
+  "join": {
+    "hello": "Hi {{name}}! You're invited 🎁",
+    "signInTitle": "Confirm it's you",
+    "signInSub": "Sign in with the invited email ({{email}}).",
+    "accept": "I'm in!",
+    "decline": "Can't join",
+    "already": "You already joined this exchange.",
+    "goToMine": "Go to my exchanges",
+    "switchAccount": "Use another account"
+  },
+  "wizard": {
+    "exit": "Exit",
+    "progress": "Progress",
+    "preview": "Preview",
+    "steps": {
+      "service": "Service",
+      "details": "Details",
+      "people": "People",
+      "rules": "Rules",
+      "account": "Account",
+      "review": "Launch"
+    },
+    "service": {
+      "title": "What are we celebrating?",
+      "sub": "Choose the kind of exchange. You can run as many as you like."
+    },
+    "details": {
+      "title": "The details",
+      "sub": "Name it, pick a date and agree on a budget.",
+      "name": "Exchange name",
+      "namePh": "Family Christmas 2026",
+      "date": "Exchange date",
+      "location": "Where",
+      "locationPh": "Grandma's house, Zoom…",
+      "budget": "Budget",
+      "min": "Min",
+      "max": "Max",
+      "currency": "Currency",
+      "description": "Message for everyone",
+      "descriptionPh": "Dress code, theme, house rules…",
+      "wishlists": "Let people share wishlists"
+    },
+    "people": {
+      "title": "Who's in?",
+      "sub": "Add people one by one or paste a list. They'll get an email invite.",
+      "includeMe": "I'm taking part too",
+      "organizerName": "Your name",
+      "name": "Name",
+      "email": "Email",
+      "add": "Add",
+      "pasteList": "Paste a list",
+      "addAll": "Add all",
+      "invalidLines": "{{count}} line(s) without a valid email were left in the box.",
+      "you": "You",
+      "youHint": "(your sign-in email)"
+    },
+    "rules": {
+      "title": "Any rules?",
+      "sub": "Keep couples, roommates or last year's pairs apart. Optional.",
+      "giver": "Person",
+      "receiver": "Can't get",
+      "bothWays": "Both ways",
+      "add": "Add rule",
+      "none": "No rules: anyone can draw anyone (except themselves).",
+      "never": "never paired"
+    },
+    "account": {
+      "title": "Last step: your email",
+      "sub": "We'll send a code so only you can manage this exchange. No password."
+    },
+    "review": {
+      "title": "Ready to launch 🚀",
+      "sub": "Double-check, then send the invitations.",
+      "people": "{{count}} people",
+      "rules": "{{count}} rule(s)",
+      "sendInvites": "Email invitations now",
+      "launch": "Launch exchange",
+      "launching": "Launching…"
+    },
+    "done": {
+      "title": "Your exchange is live!",
+      "body": "We sent {{count}} invitation(s). Run the draw once everyone's in.",
+      "manage": "Manage exchange",
+      "dashboard": "Go to dashboard"
+    },
+    "errors": {
+      "pickService": "Pick a service to continue.",
+      "name": "Give your exchange a name (2+ characters).",
+      "organizerName": "Tell us your name.",
+      "minPeople": "Add at least {{min}} people in total.",
+      "personName": "Add the person's name."
+    }
+  },
+  "admin": {
+    "nav": {
+      "overview": "Overview",
+      "tenants": "Tenants",
+      "users": "Users",
+      "events": "Exchanges",
+      "emails": "Email log",
+      "audit": "Audit log",
+      "catalog": "Service catalog",
+      "settings": "Platform settings",
+      "sectionOverview": "Overview",
+      "sectionTenants": "Tenants & people",
+      "sectionActivity": "Activity",
+      "sectionPlatform": "Platform",
+      "payments": "Payments"
+    },
+    "overview": {
+      "title": "Mission control",
+      "sub": "Every tenant, user and exchange across QuickSanta.",
+      "signups": "Signups (14 days)",
+      "byType": "Exchanges by service",
+      "recentTenants": "Newest tenants",
+      "activity": "Latest activity"
+    },
+    "kpi": {
+      "tenants": "Tenants",
+      "active": "{{n}} active",
+      "users": "Users",
+      "events": "Exchanges",
+      "openDrawn": "{{open}} open · {{drawn}} drawn",
+      "participants": "Participants",
+      "emails": "Emails (7d)",
+      "failures": "{{n}} failed",
+      "revenue": "Revenue",
+      "revenue30": "{{amount}} last 30d · {{n}} Pro"
+    },
+    "tenants": {
+      "sub": "Manage every workspace: status, plan and limits.",
+      "search": "Search name, slug or owner email…",
+      "controls": "Controls",
+      "maxEvents": "Max active exchanges",
+      "maxParticipants": "Max people per exchange",
+      "saveLimits": "Save limits",
+      "col": {
+        "name": "Tenant",
+        "owner": "Owner",
+        "status": "Status",
+        "plan": "Plan",
+        "members": "Members",
+        "events": "Exchanges",
+        "created": "Created"
+      }
+    },
+    "users": {
+      "sub": "Everyone with an account. Owners grant platform roles.",
+      "platformRole": "Platform role",
+      "noRole": "— none —",
+      "workspaces": "Workspaces",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "grant": "Grant platform access",
+      "grantHint": "They sign in with a code sent to this email."
+    },
+    "events": {
+      "sub": "Every exchange across all tenants.",
+      "tenant": "Tenant"
+    },
+    "emails": {
+      "sub": "Every OTP, invitation and assignment email.",
+      "when": "When",
+      "to": "To",
+      "template": "Template",
+      "error": "Error",
+      "tpl": {
+        "otp": "Sign-in code",
+        "invite": "Invitation",
+        "assignment": "Draw result"
+      }
+    },
+    "audit": {
+      "sub": "Who did what, and when.",
+      "action": "Action",
+      "actor": "Actor",
+      "entity": "Entity",
+      "details": "Details"
+    },
+    "catalog": {
+      "sub": "The services tenants can run. Add new creative formats anytime.",
+      "new": "New service",
+      "draw": "Uses a secret draw",
+      "noDraw": "No draw",
+      "usage": "{{n}} exchanges",
+      "icon": "Icon",
+      "order": "Sort order"
+    },
+    "settings": {
+      "version": "Production version {{v}}",
+      "ownerOnly": "Only owners can change platform settings.",
+      "signups_enabled": "Allow new tenants to sign up",
+      "session_days": "Session length (days)",
+      "default_max_events": "Default max active exchanges per tenant",
+      "default_max_participants": "Default max people per exchange",
+      "free_max_participants": "Free plan: max people per exchange",
+      "pro_max_participants": "Pro plan: max people per exchange",
+      "pro_price_cents": "Pro price per exchange (cents, e.g. 890 = $8.90)"
+    },
+    "payments": {
+      "sub": "Every Pro checkout, server-side filtered and sorted.",
+      "amount": "Amount",
+      "payer": "Payer",
+      "card": "Card"
+    }
+  },
+  "errors": {
+    "server": "Something went wrong. Please try again.",
+    "notFound": "Not found.",
+    "unauthorized": "Please sign in again.",
+    "forbidden": "You don't have access to this.",
+    "duplicate": "That already exists.",
+    "invalidReference": "Invalid reference.",
+    "tooMany": "Too many attempts. Wait a few minutes.",
+    "tooLarge": "Request too large.",
+    "badOrigin": "Request blocked.",
+    "otpInvalid": "That code is wrong or expired.",
+    "otpSendFailed": "We couldn't send the email. Try again.",
+    "authLocked": "Too many wrong codes. Request a new one.",
+    "accountSuspended": "This account is suspended.",
+    "signupsDisabled": "New signups are paused right now.",
+    "noTenantAccess": "You're not a member of this workspace.",
+    "tenantSuspended": "This workspace is suspended. Contact support.",
+    "eventLimit": "You've reached your active exchange limit.",
+    "participantLimit": "Too many people for this exchange (max {{max}}).",
+    "alreadyDrawn": "The draw already happened.",
+    "notDrawn": "The draw hasn't happened yet.",
+    "eventClosed": "This exchange is closed.",
+    "drawNotSupported": "This service doesn't use a draw.",
+    "inviteInvalid": "This invitation link is invalid or expired.",
+    "inviteWrongAccount": "This invite was sent to {{expected}}. Sign in with that email.",
+    "participantRemoved": "That person was removed.",
+    "emailFailed": "Email delivery failed.",
+    "cannotChangeSelf": "You can't change your own access.",
+    "lastOwner": "There must be at least one owner.",
+    "lastOrganizer": "A workspace needs at least one organizer.",
+    "paymentsUnavailable": "Payments aren't available right now. Try again later.",
+    "badSignature": "Invalid signature.",
+    "needsPro": "This exchange needs Pro: the free plan allows up to {{free_max}} people.",
+    "paymentRequired": "Complete the payment first.",
+    "invalidTransition": "That status change isn't allowed.",
+    "alreadyPro": "This exchange is already Pro.",
+    "paymentMismatch": "That payment doesn't belong to this exchange.",
+    "paymentNotCompleted": "The payment wasn't completed."
+  },
+  "validation": {
+    "invalid": "Please check the highlighted fields.",
+    "invalidId": "Invalid id.",
+    "invalidJson": "Invalid request.",
+    "email": "Enter a valid email.",
+    "budgetRange": "Minimum budget can't be above the maximum.",
+    "eventType": "Pick a valid service.",
+    "minParticipants": "You need at least {{min}} people.",
+    "exclusion": "That rule isn't valid.",
+    "drawImpossible": "These rules make a fair draw impossible. Remove a rule or add people."
+  },
+  "checkout": {
+    "kicker": "Pro exchange",
+    "heading": "Unlock Pro for this exchange",
+    "sub": "{{count}} people are in. Pay once and we'll open the exchange and send every invitation.",
+    "title": "Pay {{price}} securely",
+    "lead": "One-time payment for “{{name}}”. No subscription.",
+    "cardNumber": "Card number",
+    "expiry": "Expiry",
+    "cvc": "CVC",
+    "cardHolder": "Card holder",
+    "pay": "Pay {{price}}",
+    "paying": "Processing…",
+    "paid": "Paid!",
+    "trustEncrypted": "Encrypted by Stripe",
+    "trustNeverStored": "We never see or store your card",
+    "successTitle": "Payment received. Pro unlocked! 🎉",
+    "successToast": "Pro unlocked: invitations sent and room for more people.",
+    "later": "Pay later (the exchange stays closed until paid)",
+    "planLabel": "Plan",
+    "upTo": "Up to {{count}} people",
+    "needsPro": "{{count}} people is above the free limit of {{max}}. This exchange will be Pro.",
+    "enterprise": "More than {{max}} people? That's Enterprise. Contact us and we'll set it up.",
+    "launchPay": "Launch & pay {{price}}",
+    "pendingTitle": "Payment pending",
+    "pendingBody": "Pay {{price}} to open this exchange and send the invitations.",
+    "payNow": "Pay {{price}}",
+    "upgradeTitle": "{{used}}/{{max}} people on the free plan",
+    "upgradeBody": "Upgrade this exchange to Pro for up to {{count}} people · {{price}} once.",
+    "upgrade": "Upgrade to Pro",
+    "proActive": "Pro exchange · up to {{max}} people",
+    "modalTitle": "Upgrade to Pro"
+  }
+}

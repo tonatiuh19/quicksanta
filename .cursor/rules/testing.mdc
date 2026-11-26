@@ -1,0 +1,25 @@
+---
+description: Fast, cheap tests — mock-first (fake DB + mocked API), TiDB only for what only a database can prove
+globs: api/**/*.test.ts, client/**/*.spec.ts, client/**/*.spec.tsx, shared/**/*.test.ts
+alwaysApply: false
+---
+
+# Testing: mock first, fast deploys
+
+Three Vitest projects (`vitest.config.ts`):
+
+| Project | What | Where | Speed |
+|---|---|---|---|
+| `unit` | Pure helpers (draw engine, grid parser, templates, permissions, parsers) **and every API route** via supertest against the in-memory fake DB (`api/testFakeDb.ts`) | `api/*.test.ts`, `shared/*.test.ts`, `client/**/*.spec.ts` | ms |
+| `ui` | React pages/components with the real store + router + i18n; network mocked with `mockApi()` (`client/test/render.tsx`) | `client/**/*.spec.tsx` | ~2 s |
+| `integration` | Real shared TiDB end to end: transactions, FKs/cascades, SQL correctness, cleanup | `api/*.integration.test.ts` | ~30 s+ |
+
+- `npm test` = unit + ui (what `npm run deploy:prod` runs by default). `npm run test:integration` / `deploy:prod -- --full` add TiDB.
+- **Every new API route gets a fake-DB test** for: 401/403 guards, tenant scoping (assert `tenant_id` in params), the happy path, and each `HttpError` branch.
+  - `const fake = installFakeDb(); signIn(fake, {...}, [{ tenant_id, role }]); fake.on(/SQL regex/, rows)`; assert with `fake.find(/INSERT INTO …/)`.
+  - Unmatched SELECT → `[]`, unmatched write → `{ affectedRows: 1, insertId }`. Use `fake.once` for sequences.
+- **Every new page gets a UI spec** of its main flow and its main error (`fail(status, "errors.key")`).
+- Export pure helpers from `api/index.ts` and unit test every branch (no `createServer()` needed).
+- Outside services are always faked: email via `__test.emailDryRuns` / `__test.setEmailTransport`.
+- Integration tests: only for wiring a real DB proves; one legal + one illegal path per rule. Fixtures: `fixturePrefix("suite")` + `@example.com`, `cleanupByPrefix` in `afterAll`. `api/testGlobalSetup.ts` holds a DB-wide lock and fails the run if fixtures leak.
+- i18n catalogs are checked by `client/i18n.spec.ts` (EN = ES keys; every literal key exists).

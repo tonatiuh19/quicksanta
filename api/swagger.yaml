@@ -1,0 +1,591 @@
+openapi: 3.0.3
+info:
+  title: QuickSanta API
+  version: 1.0.0
+  description: |
+    Single serverless function (api/index.ts). Auth = HttpOnly cookie `qs_sid` from passwordless OTP.
+    Workspace routes resolve the tenant from `X-Tenant-Id` (or the session's active tenant).
+    Errors: `{ error: "<i18n key>" }`. Grid endpoints accept page, limit (≤100), sort_by, sort_dir (ASC|DESC), q, and whitelisted filters,
+    and return `{ ok, items, pagination: { page, limit, total, totalPages } }`.
+servers:
+  - url: /
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: qs_sid
+  parameters:
+    TenantHeader: { name: X-Tenant-Id, in: header, required: false, schema: { type: integer } }
+    page: { name: page, in: query, schema: { type: integer, minimum: 1 } }
+    limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+    sort_by: { name: sort_by, in: query, schema: { type: string } }
+    sort_dir: { name: sort_dir, in: query, schema: { type: string, enum: [ASC, DESC] } }
+    q: { name: q, in: query, schema: { type: string, maxLength: 80 } }
+  schemas:
+    Error: { type: object, properties: { error: { type: string, example: errors.forbidden } } }
+    Pagination: { type: object, properties: { page: { type: integer }, limit: { type: integer }, total: { type: integer }, totalPages: { type: integer } } }
+paths:
+  /api/health:
+    get:
+      tags: [Public]
+      summary: GET /api/health
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/event-types:
+    get:
+      tags: [Public]
+      summary: Active service catalog (Secret Santa, white elephant, …)
+      responses:
+        '200': { description: OK }
+  /api/auth/otp/request:
+    post:
+      tags: [Auth]
+      summary: POST /api/auth/otp/request
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: POST /api/auth/otp/verify
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: GET /api/auth/me
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: POST /api/auth/logout
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/auth/switch-tenant:
+    post:
+      tags: [Auth]
+      summary: POST /api/auth/switch-tenant
+      description: "Guard: requireAuth()"
+      security: [{ session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/auth/profile:
+    patch:
+      tags: [Auth]
+      summary: PATCH /api/auth/profile
+      description: "Guard: requireAuth()"
+      security: [{ session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/wizard/launch:
+    post:
+      tags: [Wizard]
+      summary: POST /api/wizard/launch
+      description: "Guard: requireAuth()"
+      security: [{ session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '201': { description: Created }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/join/{token}:
+    get:
+      tags: [Join]
+      summary: GET /api/join/:token
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/join/{token}/respond:
+    post:
+      tags: [Join]
+      summary: POST /api/join/:token/respond
+      description: "Guard: requireAuth()"
+      security: [{ session: [] }]
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/dashboard:
+    get:
+      tags: [Workspace]
+      summary: GET /api/app/dashboard
+      description: "Guard: requireTenant(events.view_own)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events:
+    get:
+      tags: [Workspace]
+      summary: GET /api/app/events
+      description: "Guard: requireTenant(events.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}:
+    get:
+      tags: [Workspace]
+      summary: GET /api/app/events/:id
+      description: "Guard: requireTenant(events.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    patch:
+      tags: [Workspace]
+      summary: PATCH /api/app/events/:id
+      description: "Guard: requireTenant(events.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/participants:
+    get:
+      tags: [Workspace]
+      summary: GET /api/app/events/:id/participants
+      description: "Guard: requireTenant(participants.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      tags: [Workspace]
+      summary: POST /api/app/events/:id/participants
+      description: "Guard: requireTenant(participants.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '201': { description: Created }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/participants/{pid}:
+    patch:
+      tags: [Workspace]
+      summary: PATCH /api/app/events/:id/participants/:pid
+      description: "Guard: requireTenant(participants.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: pid, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/participants/{pid}/resend:
+    post:
+      tags: [Workspace]
+      summary: POST /api/app/events/:id/participants/:pid/resend
+      description: "Guard: requireTenant(participants.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: pid, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/exclusions:
+    post:
+      tags: [Workspace]
+      summary: POST /api/app/events/:id/exclusions
+      description: "Guard: requireTenant(participants.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '201': { description: Created }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/exclusions/{xid}:
+    delete:
+      tags: [Workspace]
+      summary: DELETE /api/app/events/:id/exclusions/:xid
+      description: "Guard: requireTenant(participants.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: xid, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/draw:
+    post:
+      tags: [Workspace]
+      summary: POST /api/app/events/:id/draw
+      description: "Guard: requireTenant(draw.run)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/reset-draw:
+    post:
+      tags: [Workspace]
+      summary: POST /api/app/events/:id/reset-draw
+      description: "Guard: requireTenant(draw.run)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/my/events:
+    get:
+      tags: [Participant]
+      summary: GET /api/app/my/events
+      description: "Guard: requireAuth()"
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/my/events/{publicId}:
+    get:
+      tags: [Participant]
+      summary: GET /api/app/my/events/:publicId
+      description: "Guard: requireAuth()"
+      security: [{ session: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/my/events/{publicId}/wishlist:
+    put:
+      tags: [Participant]
+      summary: PUT /api/app/my/events/:publicId/wishlist
+      description: "Guard: requireAuth()"
+      security: [{ session: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/members:
+    get:
+      tags: [Workspace]
+      summary: GET /api/app/members
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/members/{id}:
+    patch:
+      tags: [Workspace]
+      summary: PATCH /api/app/members/:id
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/tenant:
+    patch:
+      tags: [Workspace]
+      summary: PATCH /api/app/tenant
+      description: "Guard: requireTenant(members.manage)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/overview:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/overview
+      description: "Guard: requirePlatform(overview)"
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/tenants:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/tenants
+      description: "Guard: requirePlatform(tenants.read)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/tenants/{id}:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/tenants/:id
+      description: "Guard: requirePlatform(tenants.read)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    patch:
+      tags: [Command Center]
+      summary: PATCH /api/admin/tenants/:id
+      description: "Guard: requirePlatform(tenants.write)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/users:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/users
+      description: "Guard: requirePlatform(users.read)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/users/{id}:
+    patch:
+      tags: [Command Center]
+      summary: PATCH /api/admin/users/:id
+      description: "Guard: requirePlatform(users.write)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/users/invite:
+    post:
+      tags: [Command Center]
+      summary: POST /api/admin/users/invite
+      description: "Guard: requirePlatform(users.roles)"
+      security: [{ session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '201': { description: Created }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/events:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/events
+      description: "Guard: requirePlatform(events.read)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/event-types:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/event-types
+      description: "Guard: requirePlatform(overview)"
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      tags: [Command Center]
+      summary: POST /api/admin/event-types
+      description: "Guard: requirePlatform(catalog.write)"
+      security: [{ session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '201': { description: Created }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/event-types/{id}:
+    patch:
+      tags: [Command Center]
+      summary: PATCH /api/admin/event-types/:id
+      description: "Guard: requirePlatform(catalog.write)"
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/audit:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/audit
+      description: "Guard: requirePlatform(audit.read)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/emails:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/emails
+      description: "Guard: requirePlatform(emails.read)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/settings:
+    get:
+      tags: [Command Center]
+      summary: GET /api/admin/settings
+      description: "Guard: requirePlatform(overview)"
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    put:
+      tags: [Command Center]
+      summary: PUT /api/admin/settings
+      description: "Guard: requirePlatform(settings.write)"
+      security: [{ session: [] }]
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/cron/cleanup:
+    get:
+      tags: [Cron]
+      summary: GET /api/cron/cleanup
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/pricing:
+    get:
+      tags: [Public]
+      summary: Plan limits and Pro price (free_max_participants, pro_max_participants, pro_price_cents, pro_currency)
+      responses:
+        '200': { description: OK }
+  /api/webhooks/stripe:
+    post:
+      tags: [Billing]
+      summary: Stripe webhook (payment_intent.succeeded / payment_failed / canceled). Signature verified on the raw body with STRIPE_WEBHOOK_SECRET.
+      responses:
+        '200': { description: Received }
+        '400': { description: Bad signature }
+  /api/app/events/{id}/checkout:
+    post:
+      tags: [Billing]
+      summary: Create (or reuse) the Pro PaymentIntent for this exchange; returns client_secret for Stripe Elements
+      description: "Guard: requireTenant(events.manage). 409 errors.alreadyPro when paid or Enterprise."
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      responses:
+        '200': { description: "{ client_secret, payment_intent_id, amount_cents, currency }" }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/checkout/confirm:
+    post:
+      tags: [Billing]
+      summary: Verify the PaymentIntent with Stripe and unlock Pro (idempotent; opens pending exchanges and sends queued invites)
+      description: "Guard: requireTenant(events.manage). Body { payment_intent_id }."
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/TenantHeader'
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: "{ event }" }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/payments:
+    get:
+      tags: [Command Center]
+      summary: Payments grid (server-side filter/sort/search/paging)
+      description: "Guard: requirePlatform(payments.read)"
+      security: [{ session: [] }]
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/sort_by'
+        - $ref: '#/components/parameters/sort_dir'
+        - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
