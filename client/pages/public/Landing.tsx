@@ -2,20 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowRight, BookOpen, Check, ChevronDown, Cookie, Gift, ListChecks, Lock, Mail, PartyPopper, ShieldCheck, Shuffle, Sparkles, Users, Wand2,
+  ArrowRight, Check, ChevronDown, Gift, Lock, Mail, ShieldCheck, Shuffle, Sparkles, Users, Wand2,
 } from "lucide-react";
 import { Brand } from "@/components/kit";
 import LanguageToggle from "@/components/LanguageToggle";
-
-const SERVICES = [
-  { key: "secret_santa", icon: Gift },
-  { key: "white_elephant", icon: PartyPopper },
-  { key: "wishlist_exchange", icon: ListChecks },
-  { key: "book_swap", icon: BookOpen },
-  { key: "cookie_swap", icon: Cookie },
-  { key: "custom", icon: Wand2 },
-];
-const FREE_SERVICES = new Set(["secret_santa", "white_elephant"]);
+import { CustomShowcase, EnterpriseContact, InviteShowcase, JoinCodeStrip } from "@/components/landing/LandingSections";
 
 const DEMO_PEOPLE = ["Ana", "Bruno", "Carla", "Diego", "Elena", "Fer"];
 /** A valid derangement for the hero demo (index → index). */
@@ -111,6 +102,7 @@ function StepVisual({ step }: { step: number }) {
         <div className="qs-sv-inbox">
           <Users size={18} />
         </div>
+        <span className="qs-sv-linkchip">🔗 7K4P-QX9M</span>
       </div>
     );
   if (step === 2)
@@ -140,6 +132,7 @@ function StepVisual({ step }: { step: number }) {
 }
 
 const STEP_ICONS = [Wand2, Mail, Shuffle, Sparkles];
+const FAQ_COUNT = 7;
 const EXAMPLES = ["office", "family", "books"] as const;
 const PLANS = [
   { key: "free", featured: false },
@@ -151,6 +144,8 @@ export default function Landing() {
   const { t } = useTranslation();
   const [example, setExample] = useState(0);
   const [faq, setFaq] = useState<number | null>(0);
+  // Enterprise contact form (also reachable as /#contact).
+  const [contactOpen, setContactOpen] = useState(() => typeof window !== "undefined" && window.location.hash === "#contact");
   useEffect(() => {
     const id = setInterval(() => setExample((e) => (e + 1) % EXAMPLES.length), 5000);
     return () => clearInterval(id);
@@ -168,6 +163,9 @@ export default function Landing() {
           <a href="#pricing" className="qs-nav-anchor">
             {t("landing.nav.pricing")}
           </a>
+          <Link to="/join" className="qs-nav-anchor">
+            {t("landing.nav.haveCode")}
+          </Link>
           <LanguageToggle />
           <Link to="/login" className="qs-btn qs-btn-ghost">
             {t("landing.signIn")}
@@ -182,9 +180,6 @@ export default function Landing() {
       <section className="qs-hero2">
         <div className="qs-snow" aria-hidden />
         <div className="qs-hero2-copy">
-          <p className="qs-pill">
-            <Sparkles size={14} /> {t("landing.pill")}
-          </p>
           <h1>
             {t("landing.title1")} <span className="qs-hero-accent">{t("landing.title2")}</span>
           </h1>
@@ -212,22 +207,7 @@ export default function Landing() {
         <HeroDraw />
       </section>
 
-      {/* ── Services ── */}
-      <section className="qs-services">
-        <h2>{t("landing.servicesTitle")}</h2>
-        <div className="qs-service-grid">
-          {SERVICES.map(({ key, icon: Icon }, i) => (
-            <Link key={key} to={`/start?type=${key}`} className={`qs-service-card qs-reveal-up${key === "custom" ? " is-custom" : ""}`} style={{ animationDelay: `${i * 0.08}s` }}>
-              {!FREE_SERVICES.has(key) ? <span className="qs-pro-tag">Pro</span> : null}
-              <span className="qs-service-icon">
-                <Icon size={22} />
-              </span>
-              <strong>{t(`services.${key}.name`)}</strong>
-              <span>{t(`services.${key}.desc`)}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <JoinCodeStrip />
 
       {/* ── How it works ── */}
       <section className="qs-how" id="how">
@@ -249,6 +229,10 @@ export default function Landing() {
           })}
         </ol>
       </section>
+
+      {/* ── Invite link (free) + Create your own (Pro) ── */}
+      <InviteShowcase />
+      <CustomShowcase />
 
       {/* ── Examples ── */}
       <section className="qs-examples">
@@ -314,9 +298,15 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link to={key === "enterprise" ? "/login" : "/start"} className={`qs-btn ${featured ? "qs-btn-primary" : "qs-btn-ghost"}`}>
-                {t(`landing.pricing.${key}.cta`)}
-              </Link>
+              {key === "enterprise" ? (
+                <button type="button" className="qs-btn qs-btn-ghost" onClick={() => setContactOpen(true)}>
+                  {t(`landing.pricing.${key}.cta`)}
+                </button>
+              ) : (
+                <Link to="/start" className={`qs-btn ${featured ? "qs-btn-primary" : "qs-btn-ghost"}`}>
+                  {t(`landing.pricing.${key}.cta`)}
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -325,7 +315,7 @@ export default function Landing() {
       {/* ── FAQ ── */}
       <section className="qs-faq">
         <h2>{t("landing.faq.title")}</h2>
-        {[1, 2, 3, 4].map((i) => (
+        {Array.from({ length: FAQ_COUNT }, (_, i) => i + 1).map((i) => (
           <div key={i} className={`qs-faq-item${faq === i ? " is-open" : ""}`}>
             <button type="button" aria-expanded={faq === i} onClick={() => setFaq(faq === i ? null : i)}>
               {t(`landing.faq.q${i}`)} <ChevronDown size={18} />
@@ -341,6 +331,15 @@ export default function Landing() {
           {t("landing.cta")} <ArrowRight size={18} />
         </Link>
       </section>
+
+      <EnterpriseContact
+        open={contactOpen}
+        onClose={() => {
+          setContactOpen(false);
+          // Opened from /#contact: drop the hash so a reload doesn't reopen it.
+          if (window.location.hash === "#contact") window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }}
+      />
 
       <footer className="qs-landing-foot">
         <Brand compact /> <span>© {new Date().getFullYear()} QuickSanta · Disrupting Labs</span>

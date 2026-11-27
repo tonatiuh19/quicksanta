@@ -1,4 +1,4 @@
-import { Building2, CalendarHeart, CreditCard, Gauge, History, Layers, Mail, Settings, UserRound, Users } from "lucide-react";
+import { Building2, CalendarHeart, CreditCard, Gauge, History, Inbox, Layers, Mail, Settings, UserRound, Users } from "lucide-react";
 import PortalShell, { type NavItem } from "@/components/portal/PortalShell";
 
 /** Command Center nav, split by category like groundwork's AdminLayout. Items list in group order. */
@@ -6,6 +6,7 @@ export const ADMIN_NAV: NavItem[] = [
   { to: "/admin", end: true, labelKey: "admin.nav.overview", tabLabelKey: "nav.home", icon: Gauge, perm: "overview", section: "admin.nav.sectionOverview" },
   { to: "/admin/tenants", labelKey: "admin.nav.tenants", icon: Building2, perm: "tenants.read", section: "admin.nav.sectionTenants" },
   { to: "/admin/users", labelKey: "admin.nav.users", icon: Users, perm: "users.read", section: "admin.nav.sectionTenants" },
+  { to: "/admin/leads", labelKey: "admin.nav.leads", icon: Inbox, perm: "leads.manage", section: "admin.nav.sectionTenants" },
   { to: "/admin/events", labelKey: "admin.nav.events", icon: CalendarHeart, perm: "events.read", section: "admin.nav.sectionActivity" },
   { to: "/admin/payments", labelKey: "admin.nav.payments", icon: CreditCard, perm: "payments.read", section: "admin.nav.sectionActivity" },
   { to: "/admin/emails", labelKey: "admin.nav.emails", icon: Mail, perm: "emails.read", section: "admin.nav.sectionActivity" },

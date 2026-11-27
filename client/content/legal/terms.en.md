@@ -18,6 +18,8 @@ QuickSanta lets organizers create gift exchanges (such as Secret Santa, white el
 
 Organizers confirm they have permission to invite each person and to share their name and email with QuickSanta for the exchange. Do not invite people who have asked not to be contacted.
 
+If you turn on an exchange's invite link or code, anyone who has it can join (after signing in with their email) until you turn it off, make a new link, it expires, it reaches its limit or the draw runs. Share it only with people you want in the exchange; you can remove anyone before the draw.
+
 ## 4. Plans, pricing and billing
 
 - **Free:** Secret Santa and White Elephant exchanges with up to 20 people.

@@ -7,6 +7,10 @@ export type TenantDetail = { tenant: AdminTenantRow; members: Array<{ id: number
 export type AdminEventType = EventType & { usage_count: number };
 export type SettingRow = { setting_key: string; setting_value: string | null; description: string | null; updated_at: string };
 
+export const updateLead = createApiThunk("admin/updateLead", async (arg: { id: number; patch: { status?: string; notes?: string | null } }) => {
+  await api.patch(`/admin/leads/${arg.id}`, arg.patch);
+  return arg;
+});
 export const fetchOverview = createApiThunk("admin/overview", async () => (await api.get<CommandCenterOverview>("/admin/overview")).data);
 export const fetchTenantDetail = createApiThunk("admin/tenantDetail", async (id: number) => (await api.get<TenantDetail>(`/admin/tenants/${id}`)).data);
 export const updateTenantAdmin = createApiThunk("admin/updateTenant", async (arg: { id: number; patch: Record<string, unknown> }) => {

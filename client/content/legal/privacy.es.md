@@ -14,6 +14,7 @@ Este Aviso de Privacidad explica cómo **Disrupting Labs** ("nosotros"), operado
 | Intercambios | Nombre, fecha, presupuesto y lugar del intercambio, nombres y correos de participantes, reglas de exclusión, listas de deseos, resultados del sorteo | Organizadores y participantes |
 | Facturación | Nombre del espacio, estado de la suscripción, marca, últimos 4 dígitos y vencimiento de la tarjeta, facturas | Tú y nuestro procesador de pagos (Stripe) |
 | Técnicos | Dirección IP, navegador, registros de acceso y actividad | Automáticamente, al usar el servicio |
+| Solicitudes comerciales | Nombre, correo de trabajo, empresa, tamaño del equipo, mensaje (y la IP cifrada con hash para evitar spam) | Tú, al usar el formulario de contacto Empresarial |
 
 **Nunca** recibimos ni guardamos el número completo de tu tarjeta ni el CVC; los datos de la tarjeta van directo a Stripe. No recabamos datos personales sensibles en términos de la LFPDPPP.
 
@@ -24,6 +25,7 @@ Este Aviso de Privacidad explica cómo **Disrupting Labs** ("nosotros"), operado
 - Crear y proteger tu cuenta con códigos de acceso de un solo uso.
 - Operar los intercambios: enviar invitaciones, hacer sorteos justos y mostrar a cada persona solo su asignación y la lista de deseos correspondiente.
 - Procesar suscripciones Pro, facturas y cambios de método de pago.
+- Responder las solicitudes Empresariales que nos envíes por el formulario de contacto.
 - Prevenir fraude y abuso, mantener bitácoras de auditoría y cumplir obligaciones legales.
 
 **Finalidades secundarias** (puedes oponerte en cualquier momento escribiéndonos): analítica del producto y avisos ocasionales del servicio. Oponerte no afecta tu uso de QuickSanta.

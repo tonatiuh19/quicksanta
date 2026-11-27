@@ -23,6 +23,7 @@ export type PlatformPerm =
   | "audit.read"
   | "emails.read"
   | "payments.read"
+  | "leads.manage" // Enterprise contact requests (Command Center → Leads)
   | "settings.write";
 
 export const PLATFORM_PERMS: Record<PlatformPerm, PlatformRole[]> = {
@@ -37,6 +38,7 @@ export const PLATFORM_PERMS: Record<PlatformPerm, PlatformRole[]> = {
   "audit.read": ["owner", "admin"],
   "emails.read": ["owner", "admin"],
   "payments.read": ["owner", "admin"],
+  "leads.manage": ["owner", "admin"],
   "settings.write": ["owner"],
 };
 
@@ -211,10 +213,48 @@ export interface ParticipantRow {
   name: string;
   email: string;
   status: ParticipantStatus;
+  /** How they got in: an email invitation or the exchange's shareable invite link/code. */
+  joined_via: "email" | "link";
   has_wishlist: boolean;
   invited_at: string | null;
   joined_at: string | null;
   created_at: string;
+}
+
+/** Invite link state: active, or why it can't be used right now. */
+export type InviteLinkState = "active" | "off" | "closed" | "expired" | "full";
+
+/** Organizer view of an exchange's shareable invite link (GET/PUT /api/app/events/:id/invite-link). */
+export interface InviteLinkInfo {
+  enabled: boolean;
+  /** 8 chars from an unambiguous alphabet (no 0/O/1/I); shown as XXXX-XXXX. Null until first enabled. */
+  code: string | null;
+  url: string | null;
+  /** Optional cap on how many people may join through the link (null = only the plan limit). */
+  max: number | null;
+  /** Optional UTC expiry ("YYYY-MM-DD HH:MM:SS"). */
+  expires_at: string | null;
+  joined_via_link: number;
+  state: InviteLinkState;
+  /** Seats left under the plan limit for this exchange. */
+  seats_left: number;
+}
+
+/** Public preview behind a code (GET /api/join-code/:code). */
+export interface JoinCodePreview {
+  event_name: string;
+  type_name: string;
+  tenant_name: string;
+  organizer: string;
+  exchange_date: string | null;
+  budget: string | null;
+  theme_rules: string | null;
+  people: number;
+  /** "open" = can join; otherwise why not. */
+  state: "open" | "paused" | "closed" | "expired" | "full";
+  /** The signed-in user's status in this exchange, when they're already in it. */
+  my_status: ParticipantStatus | null;
+  event_public_id: string | null;
 }
 
 export interface ExclusionRow {
@@ -277,6 +317,31 @@ export interface AuditRow {
   entity: string;
   entity_id: string | null;
   meta: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export type TeamSize = "lt50" | "50_100" | "100_500" | "500_plus";
+export type LeadStatus = "new" | "contacted" | "won" | "lost";
+/** Landing-page Enterprise contact form (POST /api/contact). `website` is a honeypot: must stay empty. */
+export interface ContactRequestInput {
+  name: string;
+  email: string;
+  company?: string;
+  team_size: TeamSize;
+  message?: string;
+  website?: string;
+}
+export interface LeadRow {
+  id: number;
+  name: string;
+  email: string;
+  company: string | null;
+  team_size: TeamSize;
+  message: string | null;
+  locale: "en" | "es";
+  status: LeadStatus;
+  notes: string | null;
+  handled_by_name: string | null;
   created_at: string;
 }
 

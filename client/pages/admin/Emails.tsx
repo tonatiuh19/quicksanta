@@ -23,7 +23,7 @@ export default function Emails() {
         rowKey={(r) => r.id}
         filters={[
           { key: "status", label: t("admin.tenants.col.status"), options: ["sent", "failed", "dry_run"].map((v) => ({ value: v, label: t(`status.${v}`) })) },
-          { key: "template", label: t("admin.emails.template"), options: ["otp", "invite", "assignment"].map((v) => ({ value: v, label: t(`admin.emails.tpl.${v}`) })) },
+          { key: "template", label: t("admin.emails.template"), options: ["otp", "invite", "assignment", "link_joined", "contact"].map((v) => ({ value: v, label: t(`admin.emails.tpl.${v}`) })) },
         ]}
       />
     </div>

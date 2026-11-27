@@ -55,6 +55,22 @@ Service cards: Pro-only cards carry a red→gold "Pro" pill (lock icon on Free w
 - Guests are added under their own heading ("Add the people you're inviting", `.qs-subhead`) with fields labelled "Their name" / "Their email" — never a bare "Name" next to "Your name".
 - Validation follows field order (name, then email) and clears as soon as the user types. Avatars without a name show a person icon, not "?".
 
+## Invite link (exchange → People)
+
+- `InviteLinkPanel` (`.qs-invite-link`): one switch ("Let people join with a link"); when on, a red code ticket (`.qs-invite-code`, monospace, letter-spaced `XXXX-XXXX`, state badge; grey gradient when closed/expired/full), the read-only URL + Copy, then actions: WhatsApp (green `.qs-btn-whatsapp`; a disabled *button* when the link can't be used), native Share (only where `navigator.share` exists), QR (modal, PNG download), Copy code. Stats line: joined via link · seats left · cap · until date. "Limits" (cap + date) and "New link" (two-step, destructive) sit in the footer.
+- Join page (`/j/:code`, `/join`): the same invite ticket as email invites, then exactly one next step — OTP card (signed out), "Join the exchange" (signed in), "already in" link, or a plain explanation (paused / closed / expired / full). Code input `.qs-code-input` auto-formats to `XXXX-XXXX`.
+- People grid tags link joiners with a purple "via link" badge and can filter by "How they joined".
+- Under 560px the URL row stacks and the actions become a 2-column grid.
+
+## Home sections (newer features)
+
+- Order: hero → "Have a code?" strip (`.qs-code-strip`, white card, gold key icon, monospace code input) → how it works (step 2 shows a dashed link chip next to the envelopes) → invite-link showcase → Create-your-own showcase → examples → trust → pricing → FAQ → final CTA.
+- Showcases (`.qs-showcase`, `.is-reverse` flips sides): kicker + h2 + lead + 2×2 icon points (or a check list) + one primary CTA, next to a live visual. Visuals are decorative (`aria-hidden`) or real controls with labels; all animation stops under `prefers-reduced-motion`.
+- Invite visual: a phone (`.qs-phone`) looping code ticket + QR → group chat bubbles → people popping in "via link".
+- Create-your-own visual: a gradient ticket that restyles from icon / color radios and a draw switch (`.qs-designer`); Pro tag inline in the kicker.
+- Enterprise "Contact sales" opens a modal form (focus starts on the first field; honeypot `.qs-hp` off-screen). Leads in Command Center use colored status selects (`.qs-lead-status.is-*`).
+- Under 860px showcases stack (copy first, then the visual); under 560px points go single-column and the phone shrinks.
+
 ## Drafts
 
 - `DraftCard` (`client/components/DraftCard.tsx`, `.qs-draft`): a ticket with a coloured stub (service icon; custom designs use their own gradient via `--draft-accent`), a gold "Draft" pill, the exchange name (or "Untitled exchange"), people count, next step, relative "Edited …" time, where it is saved + days left, and a `ProgressRing` (`.qs-ring`, share of steps done).

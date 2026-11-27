@@ -18,6 +18,8 @@ QuickSanta permite a los organizadores crear intercambios de regalos (como amigo
 
 El organizador confirma que tiene permiso para invitar a cada persona y compartir su nombre y correo con QuickSanta para el intercambio. No invites a personas que hayan pedido no ser contactadas.
 
+Si activas el enlace o código de invitación de un intercambio, cualquier persona que lo tenga podrá unirse (tras iniciar sesión con su correo) hasta que lo apagues, crees un enlace nuevo, venza, llegue a su límite o se haga el sorteo. Compártelo solo con quienes quieras en el intercambio; puedes quitar a cualquiera antes del sorteo.
+
 ## 4. Planes, precios y cobros
 
 - **Gratis:** intercambios de Amigo secreto y Elefante blanco de hasta 20 personas.

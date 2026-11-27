@@ -43,6 +43,12 @@ test("public screens", async ({ page }) => {
   await shot(page, "02-login");
   await page.goto("/terms");
   await shot(page, "03-terms");
+  await page.goto("/join");
+  await shot(page, "04-join-code");
+  await page.goto("/j/ZZZZ-ZZZZ");
+  await shot(page, "05-join-code-unknown");
+  await page.goto("/#contact");
+  await shot(page, "06-contact-sales");
 });
 
 test("wizard every step", async ({ page, context }) => {
@@ -130,6 +136,8 @@ test("participant + join + admin", async ({ page, context }) => {
   await shot(page, "42-admin-payments");
   await page.goto("/admin/catalog");
   await shot(page, "43-admin-catalog");
+  await page.goto("/admin/leads");
+  await shot(page, "44-admin-leads");
   await context.clearCookies();
   await page.goto("/join/invalidtokeninvalidtoken");
   await shot(page, "50-join-invalid");

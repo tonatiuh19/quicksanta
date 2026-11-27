@@ -191,6 +191,7 @@ describe("audit regressions", () => {
   it("adding people to an unpaid exchange queues invites instead of sending them; resend is refused", async () => {
     signIn(fake, { full_name: "Org" }, [{ tenant_id: 7, role: "organizer" }]);
     fake.on(/FROM events e JOIN event_types et ON et.id = e.event_type_id JOIN tenants t/, [ev({ status: "pending_payment", tenant_plan_raw: "free", subscription_status: "none" })]);
+    fake.on(/SELECT status FROM events WHERE id = \? AND tenant_id = \? FOR UPDATE/, [{ status: "pending_payment" }]);
     fake.on(/SELECT id FROM participants WHERE event_id = \? AND tenant_id = \? AND email = \?/, [{ id: 77 }]);
     const r = await request(app).post("/api/app/events/5/participants").set("Cookie", sessionCookie).send({ participants: [{ name: "New", email: "new@example.com" }] });
     expect(r.status).toBe(201);
@@ -203,6 +204,7 @@ describe("audit regressions", () => {
   it("invites use the custom name + language", async () => {
     signIn(fake, { full_name: "Org" }, [{ tenant_id: 7, role: "organizer" }]);
     fake.on(/FROM events e JOIN event_types et ON et.id = e.event_type_id JOIN tenants t/, [ev({ status: "open", custom_name: null, event_type_slug: "book_swap", match_mode: null, reveal_mode: "private" })]);
+    fake.on(/SELECT status FROM events WHERE id = \? AND tenant_id = \? FOR UPDATE/, [{ status: "open" }]);
     fake.on(/SELECT id FROM participants WHERE event_id = \? AND tenant_id = \? AND email = \?/, [{ id: 77 }]);
     await request(app).post("/api/app/events/5/participants").set("Cookie", sessionCookie).set("Accept-Language", "es").send({ participants: [{ name: "New", email: "new@example.com" }] });
     expect(__test.emailDryRuns[0].html).toContain("Crea el tuyo");

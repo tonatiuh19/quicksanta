@@ -7,6 +7,7 @@ import { Card, ErrorNote, PageHeader, StatCard, StatusBadge, Spinner, formatBudg
 import ServerGrid from "@/components/ServerGrid";
 import { Modal } from "@/components/portal/Modal";
 import CheckoutCard from "@/components/billing/CheckoutCard";
+import InviteLinkPanel from "@/components/InviteLinkPanel";
 import { formatMoney } from "@shared/api";
 import { Button } from "@/components/ui/button";
 import type { DataGridColumn } from "@/components/ui/data-grid";
@@ -71,7 +72,18 @@ export default function EventDetail() {
   const price = formatMoney(pricing.pro_price_cents, pricing.pro_currency, i18n.language.startsWith("es") ? "es-MX" : "en-US");
 
   const columns: DataGridColumn<ParticipantRow>[] = [
-    { key: "name", label: t("people.col.name"), sortable: true, sticky: true, render: (p) => <strong>{p.name}</strong> },
+    {
+      key: "name",
+      label: t("people.col.name"),
+      sortable: true,
+      sticky: true,
+      render: (p) => (
+        <span className="qs-name-cell">
+          <strong>{p.name}</strong>
+          {p.joined_via === "link" ? <span className="qs-badge qs-badge--purple" title={t("people.viaLinkHint")}>{t("people.viaLink")}</span> : null}
+        </span>
+      ),
+    },
     { key: "email", label: t("people.col.email"), sortable: true },
     { key: "status", label: t("people.col.status"), sortable: true, render: (p) => <StatusBadge value={p.status} /> },
     { key: "has_wishlist", label: t("people.col.wishlist"), render: (p) => (p.has_wishlist ? "✓" : "—") },
@@ -212,6 +224,7 @@ export default function EventDetail() {
 
       {tab === "people" ? (
         <>
+          {event.status !== "cancelled" ? <InviteLinkPanel eventId={id} eventName={event.name} /> : null}
           {!locked ? <AddPeople eventId={id} onDone={(r) => (setToast(String(t("people.addedToast", r))), refresh())} onNeedsPro={canUpgrade ? () => setPayOpen(true) : undefined} /> : null}
           <ServerGrid<ParticipantRow>
             grid="appParticipants"
@@ -219,11 +232,15 @@ export default function EventDetail() {
             reloadToken={reload}
             columns={columns}
             rowKey={(p) => p.id}
-            filters={[{ key: "status", label: t("people.col.status"), options: ["invited", "joined", "declined", "removed"].map((v) => ({ value: v, label: t(`status.${v}`) })) }]}
+            filters={[
+              { key: "status", label: t("people.col.status"), options: ["invited", "joined", "declined", "removed"].map((v) => ({ value: v, label: t(`status.${v}`) })) },
+              { key: "joined_via", label: t("people.col.via"), options: ["email", "link"].map((v) => ({ value: v, label: t(`people.via.${v}`) })) },
+            ]}
             mobileCard={(p) => (
               <div className="qs-mobile-card">
                 <div className="qs-mobile-card-top">
                   <strong>{p.name}</strong>
+                  {p.joined_via === "link" ? <span className="qs-badge qs-badge--purple">{t("people.viaLink")}</span> : null}
                   <StatusBadge value={p.status} />
                 </div>
                 <span>{p.email}</span>

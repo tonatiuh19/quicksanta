@@ -104,6 +104,7 @@ describe("participants", () => {
   });
 
   it("adds new people, skips ones already in, re-invites removed ones, invites", async () => {
+    fake.on(/SELECT status FROM events WHERE id = \? AND tenant_id = \? FOR UPDATE/, [{ status: "open" }]);
     fake.on(/SELECT email FROM participants WHERE event_id = \? AND tenant_id = \? AND status IN/, [{ email: "dup@example.com" }]);
     fake.on(/SELECT id FROM participants WHERE event_id = \? AND tenant_id = \? AND email = \?/, [{ id: 77 }]);
     const r = await request(app)
@@ -112,14 +113,19 @@ describe("participants", () => {
       .send({ participants: [{ name: "Dup", email: "dup@example.com" }, { name: "New", email: "new@example.com" }] });
     expect(r.status).toBe(201);
     expect(r.body).toEqual({ ok: true, added: 1, invited: 1, skipped: 1 });
-    expect(fake.find(/ON DUPLICATE KEY UPDATE name = VALUES\(name\), status = IF\(status IN \('removed','declined'\)/)).toBeTruthy();
+    // Removed/declined people come back as email invites (frees the invite link's cap), counted inside the locked transaction.
+    expect(fake.find(/ON DUPLICATE KEY UPDATE name = VALUES\(name\), joined_via = IF\(status IN \('removed','declined'\), 'email', joined_via\), status = IF\(status IN \('removed','declined'\), 'invited', status\)/)).toBeTruthy();
+    expect(fake.find(/SELECT email FROM participants WHERE event_id = \? AND tenant_id = \? AND status IN \('invited','joined'\) FOR UPDATE/)).toBeTruthy();
   });
 
   it("enforces the tenant participant limit", async () => {
     fake.reset();
     signIn(fake, {}, [{ tenant_id: 7, role: "organizer" }]);
     // Free exchange: 19 people + 2 new > 20 → needs Pro (≤ 100).
-    fake.on(/FROM events e JOIN event_types et ON et.id = e.event_type_id JOIN tenants t/, [eventRow({ participant_count: 19, plan: "free", tenant_plan: "free" })]);
+    fake.on(/FROM events e JOIN event_types et ON et.id = e.event_type_id JOIN tenants t/, [eventRow({ participant_count: 0, plan: "free", tenant_plan: "free" })]);
+    fake.on(/SELECT status FROM events WHERE id = \? AND tenant_id = \? FOR UPDATE/, [{ status: "open" }]);
+    // The limit is checked against the locked, fresh count (19 active), not the precomputed participant_count.
+    fake.on(/SELECT email FROM participants WHERE event_id = \? AND tenant_id = \? AND status IN/, Array.from({ length: 19 }, (_, i) => ({ email: `p${i}@example.com` })));
     const r = await request(app)
       .post("/api/app/events/5/participants")
       .set("Cookie", sessionCookie)

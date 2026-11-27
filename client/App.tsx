@@ -9,6 +9,7 @@ import Login from "@/pages/auth/Login";
 const Wizard = lazy(() => import("@/pages/public/Wizard"));
 const Legal = lazy(() => import("@/pages/public/Legal"));
 const Join = lazy(() => import("@/pages/public/Join"));
+const JoinCode = lazy(() => import("@/pages/public/JoinCode"));
 const AppLayout = lazy(() => import("@/pages/app/AppLayout"));
 const Dashboard = lazy(() => import("@/pages/app/Dashboard"));
 const Events = lazy(() => import("@/pages/app/Events"));
@@ -26,6 +27,7 @@ const Users = lazy(() => import("@/pages/admin/Users"));
 const AdminEvents = lazy(() => import("@/pages/admin/Events"));
 const Payments = lazy(() => import("@/pages/admin/Payments"));
 const Emails = lazy(() => import("@/pages/admin/Emails"));
+const Leads = lazy(() => import("@/pages/admin/Leads"));
 const Audit = lazy(() => import("@/pages/admin/Audit"));
 const Catalog = lazy(() => import("@/pages/admin/Catalog"));
 const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
@@ -44,6 +46,8 @@ export function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/start" element={<Wizard />} />
         <Route path="/join/:token" element={<Join />} />
+        <Route path="/join" element={<JoinCode />} />
+        <Route path="/j/:code" element={<JoinCode />} />
         <Route path="/privacy" element={<Legal doc="privacy" />} />
         <Route path="/terms" element={<Legal doc="terms" />} />
         <Route path="/app" element={<AppLayout />}>
@@ -63,6 +67,7 @@ export function AppRoutes() {
           <Route path="users" element={<Users />} />
           <Route path="events" element={<AdminEvents />} />
           <Route path="payments" element={<Payments />} />
+          <Route path="leads" element={<Leads />} />
           <Route path="emails" element={<Emails />} />
           <Route path="audit" element={<Audit />} />
           <Route path="catalog" element={<Catalog />} />

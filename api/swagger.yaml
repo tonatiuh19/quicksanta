@@ -126,6 +126,36 @@ paths:
       responses:
         '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/contact:
+    post:
+      tags: [Public]
+      summary: POST /api/contact
+      description: "Public, rate-limited (5/hour/IP). Landing-page Enterprise contact form: body { name, email, company?, team_size (lt50|50_100|100_500|500_plus), message?, website (honeypot, must be empty) }. Stored in contact_requests (IP hashed) and emailed to active platform owners. A filled honeypot gets 201 and is dropped."
+      requestBody: { content: { application/json: { schema: { type: object, required: [name, email, team_size] } } } }
+      responses:
+        '201': { description: Created }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/join-code/{code}:
+    get:
+      tags: [Join]
+      summary: GET /api/join-code/:code
+      description: "Public, rate-limited (joinCodeLimiter). Preview behind an invite code (case/dash-insensitive): exchange, organizer, people, state open|closed|expired|full, and the signed-in user's status. Unknown, regenerated or cancelled → 404 errors.joinCodeInvalid; link turned off → 404 errors.joinPaused with no exchange details."
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string, example: 7K4P-QX9M } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      tags: [Join]
+      summary: POST /api/join-code/:code
+      description: "Guard: requireAuth() + joinCodeLimiter. Join instantly as a participant (body { name? }). Locks the event row; enforces link on, status open (closes at the draw), expiry, optional link cap and the plan limit → 409 errors.joinPaused|joinClosed|joinExpired|joinFull; someone the organizer removed → 403 errors.joinRemoved. An existing email invite is accepted (no new seat). Emails the organizer."
+      security: [{ session: [] }]
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string, example: 7K4P-QX9M } }
+      requestBody: { content: { application/json: { schema: { type: object, properties: { name: { type: string } } } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/join/{token}:
     get:
       tags: [Join]
@@ -195,6 +225,39 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string } }
         - $ref: '#/components/parameters/TenantHeader'
       requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/invite-link:
+    get:
+      tags: [Participants]
+      summary: GET /api/app/events/:id/invite-link
+      description: "Guard: requireTenant(participants.manage). The exchange's invite link (InviteLinkInfo)."
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    put:
+      tags: [Participants]
+      summary: PUT /api/app/events/:id/invite-link
+      description: "Guard: requireTenant(participants.manage). Body { enabled?, max? (1-1000|null), expires_at? (YYYY-MM-DD[ HH:MM[:SS]] UTC|null; a date = end of that day) }. Enabling creates the code; can't enable after the draw (409 errors.joinClosed; the draw itself switches the link off). Impossible dates → 400 validation.date. Free on every plan."
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/invite-link/regenerate:
+    post:
+      tags: [Participants]
+      summary: POST /api/app/events/:id/invite-link/regenerate
+      description: "Guard: requireTenant(participants.manage). New code; the old link/code stops working immediately."
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
         '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
@@ -520,6 +583,27 @@ paths:
         - $ref: '#/components/parameters/sort_by'
         - $ref: '#/components/parameters/sort_dir'
         - $ref: '#/components/parameters/q'
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/leads:
+    get:
+      tags: [Admin]
+      summary: GET /api/admin/leads
+      description: "Guard: requirePlatform(leads.manage). Server-side grid of contact requests (search name/email/company; filter status, team_size; sort)."
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/leads/{id}:
+    patch:
+      tags: [Admin]
+      summary: PATCH /api/admin/leads/:id
+      description: "Guard: requirePlatform(leads.manage). Body { status? (new|contacted|won|lost), notes? }; records who handled it. Audited."
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody: { content: { application/json: { schema: { type: object } } } }
       responses:
         '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

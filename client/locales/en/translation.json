@@ -101,9 +101,7 @@
     "signIn": "Sign in",
     "cta": "Start an exchange",
     "haveAccount": "I already have an account",
-    "pill": "Free · No passwords · 60 seconds",
     "subtitle": "Secret Santa, white elephant, book swaps and more. Invite your people in a minute, set the rules, and let QuickSanta run a fair, private draw for you.",
-    "servicesTitle": "Pick your kind of fun",
     "features": {
       "fair": {
         "title": "Fair draws",
@@ -120,7 +118,8 @@
     },
     "nav": {
       "how": "How it works",
-      "pricing": "Pricing"
+      "pricing": "Pricing",
+      "haveCode": "Have a code?"
     },
     "title1": "Gift exchanges,",
     "title2": "made magical.",
@@ -144,7 +143,7 @@
       },
       "s2": {
         "title": "Invite your people",
-        "body": "Paste a list of emails. Everyone gets a festive invite and joins with one code."
+        "body": "Paste a list of emails or share one link, code or QR. Everyone joins with a 6-digit email code."
       },
       "s3": {
         "title": "Fair, smart draw",
@@ -152,7 +151,7 @@
       },
       "s4": {
         "title": "The big reveal",
-        "body": "Each person flips their card to see who they gift, plus that person's wishlist."
+        "body": "Each person flips their card to see who they gift — plus their wishlist when the exchange uses one."
       }
     },
     "examples": {
@@ -198,6 +197,7 @@
         "features": [
           "Secret Santa & White Elephant",
           "Up to 20 people per exchange",
+          "Invite link, code & QR",
           "Exclusion rules (couples apart)",
           "Email invites & reveal"
         ],
@@ -228,7 +228,7 @@
           "Multiple organizers & workspaces",
           "Audit log & dedicated support"
         ],
-        "cta": "Contact us"
+        "cta": "Contact sales"
       }
     },
     "faq": {
@@ -240,10 +240,94 @@
       "q3": "Do people need a password or an app?",
       "a3": "No. Everyone signs in with a 6-digit code sent to their email, on any phone or computer.",
       "q4": "Can I keep couples apart?",
-      "a4": "Yes. Add rules like 'Ana and Bruno never draw each other' and the draw always respects them."
+      "a4": "Yes. Add rules like 'Ana and Bruno never draw each other' and the draw always respects them.",
+      "q5": "Can people join with a link instead of me typing emails?",
+      "a5": "Yes, on every plan. Turn on the invite link in your exchange and share the link, the code or a QR. People sign in with their email and join instantly; you can remove anyone, cap how many join, or set an end date.",
+      "q6": "Can someone join after we've started?",
+      "a6": "Yes, until the draw. Add them by email or let them use the invite link. Once the draw runs the matches are fixed and the link switches off; if you reset the draw you can turn it back on.",
+      "q7": "Do wishlists work for every service?",
+      "a7": "Wishlist Exchange always has them. Book Swap and Create your own let the organizer turn them on. Secret Santa, White Elephant and Cookie Swap keep it a surprise, without wishlists."
     },
     "final": {
       "title": "Ready to make this year's exchange the easiest ever?"
+    },
+    "codeStrip": {
+      "title": "Got an invite code?",
+      "body": "Type the code your organizer shared to find your exchange.",
+      "go": "Join"
+    },
+    "invite": {
+      "kicker": "New · Free on every plan",
+      "title": "Share one link. Everyone's in.",
+      "lead": "No more collecting emails one by one. Turn on the invite link and drop it in your family chat, the office Slack or a QR on the break-room fridge.",
+      "points": {
+        "share": {
+          "title": "Link, code & QR",
+          "body": "Copy it, send it on WhatsApp or print the QR. Codes like 7K4P-QX9M are easy to read out loud."
+        },
+        "join": {
+          "title": "One tap to join",
+          "body": "People sign in with a 6-digit email code and they're in, no passwords or apps."
+        },
+        "control": {
+          "title": "You stay in control",
+          "body": "See who joined “via link”, remove anyone before the draw, set a cap or an end date, or make a new link."
+        },
+        "closes": {
+          "title": "Closes at the draw",
+          "body": "Once matches are made, the link stops working, and it never goes over your plan's limit."
+        }
+      },
+      "cta": "Start an exchange",
+      "demo": {
+        "code": "Invite code",
+        "group": "Family 🎄",
+        "message": "Join our Secret Santa! quicksanta.com/j/7K4P-QX9M",
+        "reply1": "I'm in! 🎁",
+        "reply2": "Done, joined ✨",
+        "joined": "Joined",
+        "viaLink": "via link"
+      }
+    },
+    "custom": {
+      "kicker": "Create your own",
+      "kind": "Your exchange",
+      "title": "Invent your own tradition",
+      "lead": "Ugly sweaters, plant swaps, recipe exchanges… design an exchange that's unmistakably yours, then save it as a template for next year.",
+      "bullets": [
+        "Pick an icon, colors and your own house rules",
+        "Secret draw or an open swap: your call",
+        "Reveal privately or all together on the big day",
+        "Save it as a template and reuse it in one tap"
+      ],
+      "cta": "Design your exchange",
+      "iconLabel": "Icon",
+      "colorLabel": "Color",
+      "drawToggle": "Secret draw",
+      "modeDraw": "Secret draw",
+      "modeOpen": "Open swap",
+      "icons": {
+        "sparkles": "Sparkles",
+        "tree": "Tree",
+        "coffee": "Coffee",
+        "palette": "Palette",
+        "music": "Music",
+        "heart": "Heart"
+      },
+      "names": {
+        "uglySweater": {
+          "title": "Ugly Sweater Swap",
+          "rule": "The uglier, the better"
+        },
+        "plants": {
+          "title": "Plant Swap",
+          "rule": "Bring a cutting with a care note"
+        },
+        "recipes": {
+          "title": "Recipe Exchange",
+          "rule": "A dish plus its handwritten recipe"
+        }
+      }
     }
   },
   "auth": {
@@ -261,7 +345,9 @@
     "resendIn": "Resend in {{s}}s",
     "newHere": "New here?",
     "startWizard": "Start an exchange",
-    "emailPh": "you@example.com"
+    "emailPh": "you@example.com",
+    "haveCode": "Have a code?",
+    "joinWithCode": "Join an exchange"
   },
   "shell": {
     "menu": "Menu",
@@ -371,7 +457,14 @@
       "email": "Email",
       "status": "Status",
       "wishlist": "Wishlist",
-      "joined": "Joined"
+      "joined": "Joined",
+      "via": "How they joined"
+    },
+    "viaLink": "via link",
+    "viaLinkHint": "Joined with the invite link",
+    "via": {
+      "email": "Email invite",
+      "link": "Invite link"
     }
   },
   "members": {
@@ -573,7 +666,8 @@
       "sectionTenants": "Tenants & people",
       "sectionActivity": "Activity",
       "sectionPlatform": "Platform",
-      "payments": "Payments"
+      "payments": "Payments",
+      "leads": "Leads"
     },
     "overview": {
       "title": "Mission control",
@@ -639,7 +733,9 @@
       "tpl": {
         "otp": "Sign-in code",
         "invite": "Invitation",
-        "assignment": "Draw result"
+        "assignment": "Draw result",
+        "link_joined": "Joined via link",
+        "contact": "Enterprise inquiry"
       }
     },
     "audit": {
@@ -687,6 +783,25 @@
       "card": "Card",
       "what": "What",
       "subscription": "Pro subscription"
+    },
+    "leads": {
+      "sub": "Enterprise inquiries from the website. Update the status as you follow up.",
+      "statusFor": "Status for {{name}}",
+      "notesFor": "Notes for {{name}}",
+      "notes": "Notes",
+      "status": {
+        "new": "New",
+        "contacted": "Contacted",
+        "won": "Won",
+        "lost": "Lost"
+      },
+      "col": {
+        "contact": "Contact",
+        "company": "Company",
+        "size": "Size",
+        "message": "Message",
+        "handledBy": "Handled by"
+      }
     }
   },
   "errors": {
@@ -735,7 +850,13 @@
     "customIsPro": "“Create your own” always requires Pro.",
     "cronNotConfigured": "Scheduled job not configured.",
     "wishlistsFixed": "Wishlists are set by this service and can't be changed.",
-    "draftTooLarge": "This draft is too large to save."
+    "draftTooLarge": "This draft is too large to save.",
+    "joinCodeInvalid": "That code doesn't match any open exchange. Check it, or ask the organizer for a new one.",
+    "joinPaused": "The organizer paused this invite link.",
+    "joinClosed": "This exchange isn't taking new people (the draw already ran).",
+    "joinExpired": "This invite link has expired.",
+    "joinFull": "This exchange is full.",
+    "joinRemoved": "The organizer removed you from this exchange. Ask them if you should be added back."
   },
   "validation": {
     "invalid": "Please check the highlighted fields.",
@@ -748,7 +869,10 @@
     "exclusion": "That rule isn't valid.",
     "drawImpossible": "These rules make a fair draw impossible. Remove a rule or add people.",
     "customDesign": "Design your exchange first.",
-    "revealNeedsDate": "“Reveal together” needs an exchange date."
+    "revealNeedsDate": "“Reveal together” needs an exchange date.",
+    "expiryPast": "Pick a date in the future.",
+    "joinMax": "Use a whole number from 1 to 1000, or leave it empty.",
+    "date": "Pick a real date."
   },
   "checkout": {
     "kicker": "Pro exchange",
@@ -901,5 +1025,113 @@
     "resumeSub": "Your exchange is saved just as you left it.",
     "startNew": "Start a new exchange",
     "oneDraft": "You can keep one draft at a time — starting a new exchange replaces this one."
+  },
+  "inviteLink": {
+    "title": "Invite link",
+    "sub": "Share one link or code (WhatsApp, a group chat, a QR on the office fridge). People sign in with their email and join right away; you can remove anyone before the draw.",
+    "toggle": "Let people join with a link",
+    "code": "Code",
+    "codeAria": "Invite code {{code}}",
+    "url": "Invite link",
+    "state": {
+      "active": "Active",
+      "off": "Off",
+      "closed": "Closed",
+      "expired": "Expired",
+      "full": "Full"
+    },
+    "stateHelp": {
+      "off": "The link is off.",
+      "closed": "The draw switched the link off (matches are already made). If you reset the draw, you can turn it back on.",
+      "expired": "The link expired. Pick a new date under “Limits” to reopen it.",
+      "full": "No seats left (plan limit or your link cap). Raise the cap, remove someone or upgrade to add more people."
+    },
+    "offHelp": "Turn it on to get a link, a short code and a QR you can share anywhere.",
+    "copyLink": "Copy link",
+    "copyCode": "Copy code",
+    "copied": "Copied!",
+    "whatsapp": "WhatsApp",
+    "share": "Share",
+    "qr": "QR code",
+    "qrTitle": "Scan to join",
+    "qrAlt": "QR code to join {{event}}",
+    "qrHelp": "Print it or show it on screen: scanning opens the invite link.",
+    "qrDownload": "Download PNG",
+    "stats_one": "{{count}} person joined with the link · {{seats}} seats left",
+    "stats_other": "{{count}} people joined with the link · {{seats}} seats left",
+    "capInfo": "cap {{max}}",
+    "expiresInfo": "until {{date}}",
+    "limits": "Limits",
+    "max": "Max people through the link",
+    "maxPh": "No cap (plan limit only)",
+    "expires": "Link works until",
+    "limitsHelp": "Both are optional. The link always closes at the draw and never goes over your plan's limit.",
+    "regen": "New link",
+    "regenConfirm": "Yes, make a new link",
+    "regenHelp": "The current link and code stop working right away. People who already joined stay in.",
+    "shareText": "🎁 Join our exchange “{{event}}” on QuickSanta: {{url}} (code {{code}})"
+  },
+  "joinCode": {
+    "kicker": "Have a code?",
+    "enterTitle": "Join an exchange",
+    "enterSub": "Type the code the organizer shared with you.",
+    "codeLabel": "Invite code",
+    "find": "Find exchange",
+    "errors": {
+      "format": "Codes have 8 letters and numbers, like 7K4P-QX9M."
+    },
+    "notFoundTitle": "We couldn't find that exchange",
+    "invitedBy": "{{name}} invited you to join.",
+    "state": {
+      "paused": {
+        "title": "This link is paused",
+        "body": "The organizer turned the invite link off. Ask them to turn it back on or to invite you by email."
+      },
+      "closed": {
+        "title": "This exchange isn't taking new people",
+        "body": "The draw already ran (or the exchange isn't open yet). Ask {{name}} if they can still add you."
+      },
+      "expired": {
+        "title": "This link has expired",
+        "body": "Ask {{name}} for a new link or to invite you by email."
+      },
+      "full": {
+        "title": "This exchange is full",
+        "body": "There are no seats left. Ask {{name}} to make room."
+      }
+    },
+    "signInTitle": "Sign in to join",
+    "signInSub": "Use the email you'd like for this exchange — that's where your match will arrive.",
+    "readyTitle": "You're one tap away",
+    "readySub": "You'll join as {{email}}.",
+    "join": "Join the exchange",
+    "joining": "Joining…",
+    "notYou": "Not you? Use another email"
+  },
+  "contact": {
+    "title": "Talk to us about Enterprise",
+    "sub": "For companies and big communities: more than 100 people per exchange, invoicing and onboarding help. We reply within one business day.",
+    "name": "Your name",
+    "email": "Work email",
+    "company": "Company",
+    "size": "How many people?",
+    "sizePh": "Choose…",
+    "sizes": {
+      "lt50": "Under 50",
+      "50_100": "50–100",
+      "100_500": "100–500",
+      "500_plus": "500+"
+    },
+    "message": "What do you need?",
+    "messagePh": "e.g. 3 offices, 400 people, a draw per office",
+    "send": "Send",
+    "sending": "Sending…",
+    "privacy": "We'll only use this to reply to you. See our",
+    "doneTitle": "Thanks! We got it.",
+    "doneBody": "We'll write to you within one business day.",
+    "errors": {
+      "name": "Tell us your name.",
+      "size": "Choose how many people."
+    }
   }
 }

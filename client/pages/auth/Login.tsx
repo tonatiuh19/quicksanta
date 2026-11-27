@@ -39,6 +39,8 @@ export default function Login() {
       <OtpAuthCard askName />
       <p className="qs-fine center">
         {t("auth.newHere")} <Link to="/start">{t("auth.startWizard")}</Link>
+        <br />
+        {t("auth.haveCode")} <Link to="/join">{t("auth.joinWithCode")}</Link>
       </p>
     </div>
   );

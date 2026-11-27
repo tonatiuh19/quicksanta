@@ -365,3 +365,38 @@ CREATE TABLE IF NOT EXISTS `wizard_drafts` (
   KEY `idx_wizard_drafts_updated` (`updated_at`),
   CONSTRAINT `fk_wizard_drafts_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── 20261127_100000_invite_links ──
+-- Shareable invite link + short code per exchange (anyone with it can join after signing in with email OTP).
+-- Closes automatically at the draw; plan limit always applies; optional cap + expiry set by the organizer.
+ALTER TABLE `events` ADD COLUMN `join_code` CHAR(8) NULL;
+ALTER TABLE `events` ADD COLUMN `join_enabled` TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE `events` ADD COLUMN `join_max` INT UNSIGNED NULL;
+ALTER TABLE `events` ADD COLUMN `join_expires_at` DATETIME NULL;
+ALTER TABLE `events` ADD UNIQUE KEY `uq_events_join_code` (`join_code`);
+
+-- How each person got in (link joins count toward `join_max`; shown to the organizer).
+ALTER TABLE `participants` ADD COLUMN `joined_via` ENUM('email','link') NOT NULL DEFAULT 'email';
+
+-- ── 20261127_140000_contact_requests ──
+-- Enterprise / sales inquiries from the landing page contact form (platform-level, not tenant-owned).
+-- Managed in Command Center → Leads; the platform owners are emailed on each new request.
+CREATE TABLE IF NOT EXISTS `contact_requests` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(120) NOT NULL,
+  `email` VARCHAR(190) NOT NULL,
+  `company` VARCHAR(160) NULL,
+  `team_size` ENUM('lt50','50_100','100_500','500_plus') NOT NULL,
+  `message` TEXT NULL,
+  `locale` ENUM('en','es') NOT NULL DEFAULT 'en',
+  `status` ENUM('new','contacted','won','lost') NOT NULL DEFAULT 'new',
+  `notes` VARCHAR(1000) NULL,
+  `ip_hash` CHAR(64) NULL,
+  `handled_by` BIGINT UNSIGNED NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_contact_status` (`status`, `created_at`),
+  KEY `idx_contact_email` (`email`),
+  CONSTRAINT `fk_contact_handled_by` FOREIGN KEY (`handled_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

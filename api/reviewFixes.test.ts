@@ -46,8 +46,20 @@ describe("participant limits can't be bypassed", () => {
     signIn(fake, {}, [{ tenant_id: 7, role: "organizer" }]);
     fake.on(EV_RE, [eventRow()]);
     fake.on(/SELECT status FROM participants WHERE id = \?/, [{ status: "removed" }]);
+    fake.on(/SELECT id FROM participants WHERE event_id = \? AND tenant_id = \? AND status IN \('invited','joined'\) FOR UPDATE/, Array.from({ length: 20 }, (_, i) => ({ id: i + 1 })));
     const r = await request(app).patch("/api/app/events/5/participants/3").set("Cookie", sessionCookie).send({ status: "invited" });
     expect(r.body.error).toBe("errors.needsPro");
+    expect(fake.find(/FROM events WHERE id = \? AND tenant_id = \? FOR UPDATE/)).toBeTruthy();
+    expect(fake.find(/UPDATE participants SET/)).toBeUndefined();
+  });
+
+  it("re-inviting a removed link joiner below the limit makes them an email invite again", async () => {
+    signIn(fake, {}, [{ tenant_id: 7, role: "organizer" }]);
+    fake.on(EV_RE, [eventRow()]);
+    fake.on(/SELECT status FROM participants WHERE id = \?/, [{ status: "removed" }]);
+    fake.on(/SELECT id FROM participants WHERE event_id = \? AND tenant_id = \? AND status IN \('invited','joined'\) FOR UPDATE/, [{ id: 1 }]);
+    expect((await request(app).patch("/api/app/events/5/participants/3").set("Cookie", sessionCookie).send({ status: "invited" })).status).toBe(200);
+    expect(fake.find(/UPDATE participants SET joined_via = IF\(status IN \('removed','declined'\), 'email', joined_via\), status = \?/)!.params).toEqual(["invited", 3, 5, 7]);
   });
 
   it("a decliner re-accepting at the limit is refused", async () => {

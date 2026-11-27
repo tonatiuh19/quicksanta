@@ -101,9 +101,7 @@
     "signIn": "Entrar",
     "cta": "Crear intercambio",
     "haveAccount": "Ya tengo cuenta",
-    "pill": "Gratis · Sin contraseñas · 60 segundos",
     "subtitle": "Amigo secreto, elefante blanco, intercambio de libros y más. Invita a tu gente en un minuto, define las reglas y deja que QuickSanta haga un sorteo justo y privado.",
-    "servicesTitle": "Elige tu tipo de diversión",
     "features": {
       "fair": {
         "title": "Sorteos justos",
@@ -120,7 +118,8 @@
     },
     "nav": {
       "how": "Cómo funciona",
-      "pricing": "Precios"
+      "pricing": "Precios",
+      "haveCode": "¿Tienes un código?"
     },
     "title1": "Intercambios de regalos,",
     "title2": "con magia.",
@@ -144,7 +143,7 @@
       },
       "s2": {
         "title": "Invita a tu gente",
-        "body": "Pega una lista de correos. Cada quien recibe una invitación y entra con un código."
+        "body": "Pega una lista de correos o comparte un enlace, código o QR. Todos entran con un código de 6 dígitos por correo."
       },
       "s3": {
         "title": "Sorteo justo e inteligente",
@@ -152,7 +151,7 @@
       },
       "s4": {
         "title": "La gran revelación",
-        "body": "Cada persona voltea su tarjeta para ver a quién le regala y su lista de deseos."
+        "body": "Cada quien voltea su tarjeta para ver a quién le regala, y su lista de deseos cuando el intercambio la usa."
       }
     },
     "examples": {
@@ -198,6 +197,7 @@
         "features": [
           "Amigo secreto y Elefante blanco",
           "Hasta 20 personas por intercambio",
+          "Enlace, código y QR de invitación",
           "Reglas de exclusión (parejas separadas)",
           "Invitaciones por correo y revelación"
         ],
@@ -228,7 +228,7 @@
           "Varios organizadores y espacios",
           "Bitácora de auditoría y soporte dedicado"
         ],
-        "cta": "Contáctanos"
+        "cta": "Hablar con ventas"
       }
     },
     "faq": {
@@ -240,10 +240,94 @@
       "q3": "¿Se necesita contraseña o app?",
       "a3": "No. Todos entran con un código de 6 dígitos enviado a su correo, desde cualquier celular o computadora.",
       "q4": "¿Puedo separar a las parejas?",
-      "a4": "Sí. Agrega reglas como 'Ana y Bruno nunca se sacan' y el sorteo siempre las respeta."
+      "a4": "Sí. Agrega reglas como 'Ana y Bruno nunca se sacan' y el sorteo siempre las respeta.",
+      "q5": "¿Pueden unirse con un enlace en vez de que yo escriba los correos?",
+      "a5": "Sí, en todos los planes. Activa el enlace de invitación en tu intercambio y comparte el enlace, el código o un QR. Cada persona entra con su correo y se une al instante; puedes quitar a quien sea, poner un tope o una fecha límite.",
+      "q6": "¿Alguien puede unirse cuando ya empezamos?",
+      "a6": "Sí, hasta el sorteo. Agrégalo por correo o deja que use el enlace. Después del sorteo las asignaciones quedan fijas y el enlace se apaga; si reinicias el sorteo puedes volver a activarlo.",
+      "q7": "¿Las listas de deseos funcionan en todos los servicios?",
+      "a7": "El Intercambio por lista de deseos siempre las tiene. El de libros y Crea el tuyo dejan que quien organiza las active. Amigo secreto, Elefante blanco y el de galletas mantienen la sorpresa, sin listas."
     },
     "final": {
       "title": "¿Listo para el intercambio más fácil de tu vida?"
+    },
+    "codeStrip": {
+      "title": "¿Te compartieron un código?",
+      "body": "Escribe el código que te mandó quien organiza para encontrar tu intercambio.",
+      "go": "Unirme"
+    },
+    "invite": {
+      "kicker": "Nuevo · Gratis en todos los planes",
+      "title": "Comparte un enlace. Todos adentro.",
+      "lead": "Olvídate de juntar correos uno por uno. Activa el enlace de invitación y mándalo al chat familiar, al grupo de la oficina o pega un QR en el refri.",
+      "points": {
+        "share": {
+          "title": "Enlace, código y QR",
+          "body": "Cópialo, mándalo por WhatsApp o imprime el QR. Códigos como 7K4P-QX9M son fáciles de dictar."
+        },
+        "join": {
+          "title": "Un toque para unirse",
+          "body": "Cada persona entra con un código de 6 dígitos por correo y listo, sin contraseñas ni apps."
+        },
+        "control": {
+          "title": "Tú tienes el control",
+          "body": "Ve quién se unió “por enlace”, quita a quien sea antes del sorteo, pon un tope o una fecha límite, o crea un enlace nuevo."
+        },
+        "closes": {
+          "title": "Se cierra con el sorteo",
+          "body": "Cuando ya hay asignaciones el enlace deja de funcionar, y nunca supera el límite de tu plan."
+        }
+      },
+      "cta": "Crear un intercambio",
+      "demo": {
+        "code": "Código",
+        "group": "Familia 🎄",
+        "message": "¡Únete a nuestro amigo secreto! quicksanta.com/j/7K4P-QX9M",
+        "reply1": "¡Me apunto! 🎁",
+        "reply2": "Listo, ya entré ✨",
+        "joined": "Se unieron",
+        "viaLink": "por enlace"
+      }
+    },
+    "custom": {
+      "kicker": "Crea el tuyo",
+      "kind": "Tu intercambio",
+      "title": "Inventa tu propia tradición",
+      "lead": "Suéteres feos, intercambio de plantas, de recetas… diseña un intercambio inconfundiblemente tuyo y guárdalo como plantilla para el próximo año.",
+      "bullets": [
+        "Elige un ícono, colores y tus propias reglas",
+        "Sorteo secreto o intercambio abierto: tú decides",
+        "Revelación privada o todos juntos el gran día",
+        "Guárdalo como plantilla y reúsalo en un toque"
+      ],
+      "cta": "Diseña tu intercambio",
+      "iconLabel": "Ícono",
+      "colorLabel": "Color",
+      "drawToggle": "Sorteo secreto",
+      "modeDraw": "Sorteo secreto",
+      "modeOpen": "Intercambio abierto",
+      "icons": {
+        "sparkles": "Destellos",
+        "tree": "Árbol",
+        "coffee": "Café",
+        "palette": "Paleta",
+        "music": "Música",
+        "heart": "Corazón"
+      },
+      "names": {
+        "uglySweater": {
+          "title": "Intercambio de suéteres feos",
+          "rule": "Entre más feo, mejor"
+        },
+        "plants": {
+          "title": "Intercambio de plantas",
+          "rule": "Trae un esqueje con sus cuidados"
+        },
+        "recipes": {
+          "title": "Intercambio de recetas",
+          "rule": "Un platillo y su receta escrita a mano"
+        }
+      }
     }
   },
   "auth": {
@@ -261,7 +345,9 @@
     "resendIn": "Reenviar en {{s}}s",
     "newHere": "¿Eres nuevo?",
     "startWizard": "Crea un intercambio",
-    "emailPh": "tu@correo.com"
+    "emailPh": "tu@correo.com",
+    "haveCode": "¿Tienes un código?",
+    "joinWithCode": "Únete a un intercambio"
   },
   "shell": {
     "menu": "Menú",
@@ -371,7 +457,14 @@
       "email": "Correo",
       "status": "Estado",
       "wishlist": "Lista",
-      "joined": "Confirmó"
+      "joined": "Confirmó",
+      "via": "Cómo se unió"
+    },
+    "viaLink": "por enlace",
+    "viaLinkHint": "Se unió con el enlace de invitación",
+    "via": {
+      "email": "Invitación por correo",
+      "link": "Enlace de invitación"
     }
   },
   "members": {
@@ -573,7 +666,8 @@
       "sectionTenants": "Clientes y personas",
       "sectionActivity": "Actividad",
       "sectionPlatform": "Plataforma",
-      "payments": "Pagos"
+      "payments": "Pagos",
+      "leads": "Prospectos"
     },
     "overview": {
       "title": "Centro de control",
@@ -639,7 +733,9 @@
       "tpl": {
         "otp": "Código de acceso",
         "invite": "Invitación",
-        "assignment": "Resultado del sorteo"
+        "assignment": "Resultado del sorteo",
+        "link_joined": "Se unió por enlace",
+        "contact": "Solicitud empresarial"
       }
     },
     "audit": {
@@ -687,6 +783,25 @@
       "card": "Tarjeta",
       "what": "Concepto",
       "subscription": "Suscripción Pro"
+    },
+    "leads": {
+      "sub": "Solicitudes empresariales desde el sitio. Actualiza el estado conforme les das seguimiento.",
+      "statusFor": "Estado de {{name}}",
+      "notesFor": "Notas de {{name}}",
+      "notes": "Notas",
+      "status": {
+        "new": "Nuevo",
+        "contacted": "Contactado",
+        "won": "Ganado",
+        "lost": "Perdido"
+      },
+      "col": {
+        "contact": "Contacto",
+        "company": "Empresa",
+        "size": "Tamaño",
+        "message": "Mensaje",
+        "handledBy": "Atendió"
+      }
     }
   },
   "errors": {
@@ -735,7 +850,13 @@
     "customIsPro": "“Crea el tuyo” siempre requiere Pro.",
     "cronNotConfigured": "Tarea programada no configurada.",
     "wishlistsFixed": "Las listas de deseos las define este servicio y no se pueden cambiar.",
-    "draftTooLarge": "Este borrador es demasiado grande para guardarlo."
+    "draftTooLarge": "Este borrador es demasiado grande para guardarlo.",
+    "joinCodeInvalid": "Ese código no corresponde a ningún intercambio abierto. Revísalo o pide uno nuevo.",
+    "joinPaused": "Quien organiza pausó este enlace.",
+    "joinClosed": "Este intercambio ya no acepta personas (el sorteo ya se hizo).",
+    "joinExpired": "Este enlace de invitación venció.",
+    "joinFull": "Este intercambio está lleno.",
+    "joinRemoved": "Quien organiza te quitó de este intercambio. Pregúntale si debe volver a agregarte."
   },
   "validation": {
     "invalid": "Revisa los campos.",
@@ -748,7 +869,10 @@
     "exclusion": "Esa regla no es válida.",
     "drawImpossible": "Con estas reglas no hay sorteo posible. Quita una regla o agrega personas.",
     "customDesign": "Primero diseña tu intercambio.",
-    "revealNeedsDate": "“Revelar todos juntos” necesita una fecha de intercambio."
+    "revealNeedsDate": "“Revelar todos juntos” necesita una fecha de intercambio.",
+    "expiryPast": "Elige una fecha futura.",
+    "joinMax": "Usa un número entero de 1 a 1000, o déjalo vacío.",
+    "date": "Elige una fecha válida."
   },
   "checkout": {
     "kicker": "Intercambio Pro",
@@ -901,5 +1025,113 @@
     "resumeSub": "Tu intercambio está guardado tal como lo dejaste.",
     "startNew": "Empezar un intercambio nuevo",
     "oneDraft": "Puedes tener un borrador a la vez: empezar uno nuevo reemplaza este."
+  },
+  "inviteLink": {
+    "title": "Enlace de invitación",
+    "sub": "Comparte un enlace o un código (WhatsApp, un grupo, un QR en la oficina). Las personas entran con su correo y se unen al instante; puedes quitar a quien sea antes del sorteo.",
+    "toggle": "Permitir unirse con enlace",
+    "code": "Código",
+    "codeAria": "Código de invitación {{code}}",
+    "url": "Enlace de invitación",
+    "state": {
+      "active": "Activo",
+      "off": "Apagado",
+      "closed": "Cerrado",
+      "expired": "Vencido",
+      "full": "Lleno"
+    },
+    "stateHelp": {
+      "off": "El enlace está apagado.",
+      "closed": "El sorteo apagó el enlace (las asignaciones ya existen). Si reinicias el sorteo, puedes volver a activarlo.",
+      "expired": "El enlace venció. Elige una nueva fecha en “Límites” para reabrirlo.",
+      "full": "No quedan lugares (límite del plan o tope del enlace). Sube el tope, quita a alguien o mejora tu plan."
+    },
+    "offHelp": "Actívalo para obtener un enlace, un código corto y un QR para compartir donde quieras.",
+    "copyLink": "Copiar enlace",
+    "copyCode": "Copiar código",
+    "copied": "¡Copiado!",
+    "whatsapp": "WhatsApp",
+    "share": "Compartir",
+    "qr": "Código QR",
+    "qrTitle": "Escanea para unirte",
+    "qrAlt": "Código QR para unirse a {{event}}",
+    "qrHelp": "Imprímelo o muéstralo en pantalla: al escanearlo se abre el enlace.",
+    "qrDownload": "Descargar PNG",
+    "stats_one": "{{count}} persona se unió con el enlace · quedan {{seats}} lugares",
+    "stats_other": "{{count}} personas se unieron con el enlace · quedan {{seats}} lugares",
+    "capInfo": "tope {{max}}",
+    "expiresInfo": "hasta el {{date}}",
+    "limits": "Límites",
+    "max": "Máximo de personas por enlace",
+    "maxPh": "Sin tope (solo el límite del plan)",
+    "expires": "El enlace funciona hasta",
+    "limitsHelp": "Ambos son opcionales. El enlace siempre se cierra con el sorteo y nunca supera el límite de tu plan.",
+    "regen": "Nuevo enlace",
+    "regenConfirm": "Sí, crear un enlace nuevo",
+    "regenHelp": "El enlace y el código actuales dejan de funcionar de inmediato. Quienes ya se unieron se quedan.",
+    "shareText": "🎁 Únete a nuestro intercambio “{{event}}” en QuickSanta: {{url}} (código {{code}})"
+  },
+  "joinCode": {
+    "kicker": "¿Tienes un código?",
+    "enterTitle": "Únete a un intercambio",
+    "enterSub": "Escribe el código que te compartió quien organiza.",
+    "codeLabel": "Código de invitación",
+    "find": "Buscar intercambio",
+    "errors": {
+      "format": "Los códigos tienen 8 letras y números, como 7K4P-QX9M."
+    },
+    "notFoundTitle": "No encontramos ese intercambio",
+    "invitedBy": "{{name}} te invitó a unirte.",
+    "state": {
+      "paused": {
+        "title": "Este enlace está en pausa",
+        "body": "Quien organiza apagó el enlace de invitación. Pídele que lo vuelva a activar o que te invite por correo."
+      },
+      "closed": {
+        "title": "Este intercambio ya no acepta personas",
+        "body": "El sorteo ya se hizo (o el intercambio aún no abre). Pregúntale a {{name}} si todavía puede agregarte."
+      },
+      "expired": {
+        "title": "Este enlace venció",
+        "body": "Pídele a {{name}} un enlace nuevo o que te invite por correo."
+      },
+      "full": {
+        "title": "Este intercambio está lleno",
+        "body": "No quedan lugares. Pídele a {{name}} que haga espacio."
+      }
+    },
+    "signInTitle": "Inicia sesión para unirte",
+    "signInSub": "Usa el correo que quieras para este intercambio: ahí te llegará tu asignación.",
+    "readyTitle": "Estás a un toque",
+    "readySub": "Te unirás como {{email}}.",
+    "join": "Unirme al intercambio",
+    "joining": "Uniéndote…",
+    "notYou": "¿No eres tú? Usa otro correo"
+  },
+  "contact": {
+    "title": "Hablemos de Empresarial",
+    "sub": "Para empresas y comunidades grandes: más de 100 personas por intercambio, facturación y ayuda para empezar. Respondemos en un día hábil.",
+    "name": "Tu nombre",
+    "email": "Correo de trabajo",
+    "company": "Empresa",
+    "size": "¿Cuántas personas?",
+    "sizePh": "Elige…",
+    "sizes": {
+      "lt50": "Menos de 50",
+      "50_100": "50–100",
+      "100_500": "100–500",
+      "500_plus": "500+"
+    },
+    "message": "¿Qué necesitas?",
+    "messagePh": "p. ej. 3 oficinas, 400 personas, un sorteo por oficina",
+    "send": "Enviar",
+    "sending": "Enviando…",
+    "privacy": "Solo lo usaremos para responderte. Consulta nuestro",
+    "doneTitle": "¡Gracias! Lo recibimos.",
+    "doneBody": "Te escribiremos en un día hábil.",
+    "errors": {
+      "name": "Dinos tu nombre.",
+      "size": "Elige cuántas personas."
+    }
   }
 }

@@ -49,6 +49,10 @@ import type {
   TenantPerm,
   TenantRole,
   WizardDraftRecord,
+  InviteLinkInfo,
+  InviteLinkState,
+  JoinCodePreview,
+  LeadRow,
   WizardLaunchInput,
 } from "../shared/api";
 
@@ -353,6 +357,18 @@ function clientIp(req: Request): string {
   return String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim().slice(0, 64);
 }
 
+/** Keyed hash for IPs we only need to compare (spam control): plain sha256 of an IPv4 is brute-forceable. */
+function ipHash(req: Request): string {
+  const key = process.env.IP_HASH_SECRET || process.env.CRON_SECRET || "quicksanta-dev";
+  return crypto.createHmac("sha256", key).update(clientIp(req)).digest("hex");
+}
+
+/** Text that lands in an email subject/title: no control chars or newlines, collapsed spaces, short. */
+export function cleanSubjectText(v: string, max = 60): string {
+  const t = String(v ?? "").replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, " ").replace(/\s+/g, " ").trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
 function appUrl(): string {
   return (process.env.PUBLIC_APP_URL || "http://localhost:8080").replace(/\/+$/, "");
 }
@@ -495,6 +511,32 @@ export function tplAssignment(lang: Lang, o: { eventName: string; link: string; 
   return { subject: title, html, text: `${title}\n${p}\n${o.link}` };
 }
 
+export function tplLead(o: { name: string; email: string; company: string | null; teamSize: string; message: string | null; link: string }) {
+  // Internal notification (platform owners): English, plain.
+  const title = `New Enterprise inquiry: ${o.company || o.name}`;
+  const rows = [
+    `<strong>${esc(o.name)}</strong> &lt;${esc(o.email)}&gt;`,
+    o.company ? `Company: ${esc(o.company)}` : "",
+    `Team size: ${esc(o.teamSize)}`,
+    o.message ? `<br>${esc(o.message).replace(/\n/g, "<br>")}` : "",
+  ].filter(Boolean);
+  const html = emailLayout("en", title, `<p style="margin:0;line-height:1.7">${rows.join("<br>")}</p>`, { href: o.link, label: "Open in Command Center" });
+  return { subject: title, html, text: `${title}\n${o.name} <${o.email}>\n${o.company ?? ""}\n${o.teamSize}\n${o.message ?? ""}\n${o.link}` };
+}
+
+export function tplLinkJoined(lang: Lang, o: { who: string; email?: string; eventName: string; link: string }) {
+  const es = lang === "es";
+  // The name is chosen by the joiner: callers pass it through cleanSubjectText; the email shows who it really is.
+  const title = es ? `Nueva persona en "${o.eventName}": ${o.who}` : `New person in "${o.eventName}": ${o.who}`;
+  const p =
+    (o.email ? `${esc(o.email)} — ` : "") +
+    (es
+      ? "Se unió con el enlace de invitación. Si no lo conoces, puedes quitarlo antes del sorteo."
+      : "They joined with the invite link. If you don't know them, you can remove them before the draw.");
+  const html = emailLayout(lang, title, `<p style="margin:0;line-height:1.6">${p}</p>`, { href: o.link, label: es ? "Ver participantes" : "View participants" });
+  return { subject: title, html, text: `${title}\n${p}\n${o.link}` };
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // 4. Draw engine (pure)
 // ════════════════════════════════════════════════════════════════════════════
@@ -596,6 +638,7 @@ export const PLATFORM_PERMS: Record<PlatformPerm, PlatformRole[]> = {
   "audit.read": ["owner", "admin"],
   "emails.read": ["owner", "admin"],
   "payments.read": ["owner", "admin"],
+  "leads.manage": ["owner", "admin"],
   "settings.write": ["owner"],
 };
 export const TENANT_PERMS: Record<TenantPerm, TenantRole[]> = {
@@ -727,6 +770,10 @@ const limiter = (windowMs: number, max: number) =>
 const otpRequestLimiter = limiter(15 * 60_000, 8);
 const otpVerifyLimiter = limiter(15 * 60_000, 30);
 const writeLimiter = limiter(60_000, 120);
+/** Codes are bearer secrets: cap guessing per IP (32^8 space + this limit makes enumeration impractical). */
+const joinCodeLimiter = limiter(15 * 60_000, 60);
+/** Public contact form: a handful per hour per IP is plenty for humans. */
+const contactLimiter = limiter(60 * 60_000, 5);
 
 async function mintSession(req: Request, res: Response, userId: number, activeTenantId: number | null) {
   const days = Math.max(1, Math.min(90, Number(await readSetting("session_days", "30")) || 30));
@@ -1116,6 +1163,7 @@ function mapParticipant(r: any): ParticipantRow {
     name: r.name,
     email: r.email,
     status: r.status,
+    joined_via: r.joined_via === "link" ? "link" : "email",
     has_wishlist: Boolean(r.wishlist && String(r.wishlist).trim()),
     invited_at: r.invited_at ?? null,
     joined_at: r.joined_at ?? null,
@@ -1174,6 +1222,40 @@ function registerPublicRoutes(app: express.Express) {
     "/api/pricing",
     route(async (_req, res) => {
       res.json({ ok: true, ...(await pricingInfo()) });
+    }),
+  );
+
+  /** Landing-page Enterprise contact form → contact_requests + email to the platform owners. */
+  app.post(
+    "/api/contact",
+    contactLimiter,
+    route(async (req, res) => {
+      const body = z
+        .object({
+          name: z.string().trim().min(2).max(120),
+          email: emailSchema,
+          company: z.string().trim().max(160).optional().default(""),
+          team_size: z.enum(["lt50", "50_100", "100_500", "500_plus"]),
+          message: z.string().trim().max(2000).optional().default(""),
+          website: z.string().optional().default(""),
+        })
+        .parse(req.body ?? {});
+      // Honeypot filled → a bot. Pretend success so it doesn't retry; store nothing.
+      if (body.website.trim()) return void res.status(201).json({ ok: true });
+      const ins = await db.exec("INSERT INTO contact_requests (name, email, company, team_size, message, locale, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+        body.name,
+        body.email,
+        body.company || null,
+        body.team_size,
+        body.message || null,
+        reqLang(req),
+        ipHash(req),
+      ]);
+      const owners = await db.query("SELECT email FROM users WHERE platform_role = 'owner' AND status = 'active'");
+      const tpl = tplLead({ name: body.name, email: body.email, company: body.company || null, teamSize: body.team_size, message: body.message || null, link: `${appUrl()}/admin/leads` });
+      for (const o of owners) await sendEmail({ to: String(o.email), ...tpl, template: "contact" }).catch(() => undefined);
+      await audit(req, "lead.create", "contact_request", ins.insertId, { meta: { team_size: body.team_size } });
+      res.status(201).json({ ok: true });
     }),
   );
 
@@ -1577,6 +1659,74 @@ function registerWizardRoutes(app: express.Express) {
   );
 }
 
+
+// ── Invite links (shareable link + short code per exchange) ──
+/** Unambiguous alphabet (no 0/O/1/I): codes are read aloud and typed from screenshots. 32^8 ≈ 1.1e12. */
+const JOIN_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+export function newJoinCode(): string {
+  const bytes = crypto.randomBytes(8);
+  return Array.from(bytes, (b) => JOIN_CODE_ALPHABET[b % 32]).join("");
+}
+/** "7k4p-qx9m", " 7K4P QX9M " → "7K4PQX9M"; null when it can't be a code. */
+export function normalizeJoinCode(raw: string): string | null {
+  const c = String(raw ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return c.length === 8 && [...c].every((ch) => JOIN_CODE_ALPHABET.includes(ch)) ? c : null;
+}
+export const formatJoinCode = (c: string) => `${c.slice(0, 4)}-${c.slice(4)}`;
+const joinUrl = (c: string) => `${appUrl()}/j/${formatJoinCode(c)}`;
+const JOINABLE_STATUSES = new Set(["open"]);
+/** "2026-02-31" or "25:99" pass a regex but aren't real: round-trip through Date to be sure (UTC). */
+export function isRealUtcDateTime(v: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(v);
+  if (!m) return false;
+  const [y, mo, d, h = "0", mi = "0", se = "0"] = m.slice(1);
+  const dt = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +se));
+  return dt.getUTCFullYear() === +y && dt.getUTCMonth() === +mo - 1 && dt.getUTCDate() === +d && dt.getUTCHours() === +h && dt.getUTCMinutes() === +mi && dt.getUTCSeconds() === +se;
+}
+const isPast = (utc: string | null | undefined) => Boolean(utc) && Date.parse(`${String(utc).replace(" ", "T")}Z`) <= Date.now();
+
+/** Why the link can (not) be used right now, in priority order. */
+export function inviteLinkState(o: { enabled: boolean; status: string; expires_at: string | null; max: number | null; joined_via_link: number; seats_left: number }): InviteLinkState {
+  if (!JOINABLE_STATUSES.has(o.status)) return "closed";
+  if (!o.enabled) return "off";
+  if (isPast(o.expires_at)) return "expired";
+  if (o.seats_left <= 0 || (o.max != null && o.joined_via_link >= o.max)) return "full";
+  return "active";
+}
+
+/** New unique code for this exchange (retries on the unique key; collisions are astronomically rare). */
+async function assignJoinCode(tenantId: number, eventId: number): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const code = newJoinCode();
+    try {
+      await db.exec("UPDATE events SET join_code = ? WHERE id = ? AND tenant_id = ?", [code, eventId, tenantId]);
+      return code;
+    } catch (e: any) {
+      if (e?.code !== "ER_DUP_ENTRY") throw e;
+    }
+  }
+  throw new HttpError(500, "errors.server");
+}
+
+async function inviteLinkInfo(tenantId: number, eventId: number): Promise<InviteLinkInfo> {
+  const { event, row, maxParticipants } = await loadTenantEvent(tenantId, eventId);
+  const [r] = await db.query(
+    "SELECT e.join_code, e.join_enabled, e.join_max, e.join_expires_at, (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.joined_via = 'link' AND p.status IN ('invited','joined')) AS via_link FROM events e WHERE e.id = ? AND e.tenant_id = ?",
+    [eventId, tenantId],
+  );
+  void row;
+  const info = {
+    enabled: toBool(r?.join_enabled),
+    code: r?.join_code ? formatJoinCode(r.join_code) : null,
+    url: r?.join_code ? joinUrl(r.join_code) : null,
+    max: r?.join_max == null ? null : Number(r.join_max),
+    expires_at: r?.join_expires_at ?? null,
+    joined_via_link: Number(r?.via_link ?? 0),
+    seats_left: Math.max(0, maxParticipants - event.participant_count),
+  };
+  return { ...info, state: inviteLinkState({ ...info, status: event.status }) };
+}
+
 function registerJoinRoutes(app: express.Express) {
   const findInvite = async (token: string) => {
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) throw new HttpError(404, "errors.inviteInvalid");
@@ -1651,6 +1801,121 @@ function registerJoinRoutes(app: express.Express) {
       res.json({ ok: true, status: accept ? "joined" : "declined", tenant_id: Number(r.tenant_id), event_public_id: r.event_public_id });
     }),
   );
+
+  // ── Join with the exchange's shareable link / code ──
+  const findByCode = async (raw: string) => {
+    const code = normalizeJoinCode(raw);
+    if (!code) throw new HttpError(404, "errors.joinCodeInvalid");
+    const rows = await db.query(
+      `SELECT e.id, e.tenant_id, e.public_id, e.name, e.status, e.exchange_date, e.budget_min, e.budget_max, e.currency, e.theme_rules, e.custom_name,
+              e.join_enabled, e.join_max, e.join_expires_at, e.created_by, et.name_en, et.name_es, t.name AS tenant_name, t.status AS tenant_status, u.full_name AS organizer, u.email AS organizer_email, u.locale AS organizer_locale,
+              (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.status IN ('invited','joined')) AS people,
+              (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id AND p.joined_via = 'link' AND p.status IN ('invited','joined')) AS via_link
+         FROM events e JOIN event_types et ON et.id = e.event_type_id JOIN tenants t ON t.id = e.tenant_id LEFT JOIN users u ON u.id = e.created_by
+        WHERE e.join_code = ? LIMIT 1`,
+      [code],
+    );
+    const r = rows[0];
+    // A regenerated (old) code, a cancelled exchange or a suspended workspace look the same as a wrong code.
+    if (!r || r.status === "cancelled" || r.tenant_status !== "active") throw new HttpError(404, "errors.joinCodeInvalid");
+    return { code, r };
+  };
+  const previewState = async (r: any): Promise<JoinCodePreview["state"]> => {
+    if (!toBool(r.join_enabled)) return "paused";
+    const { maxParticipants } = await loadTenantEvent(Number(r.tenant_id), Number(r.id));
+    const st = inviteLinkState({ enabled: true, status: r.status, expires_at: r.join_expires_at, max: r.join_max == null ? null : Number(r.join_max), joined_via_link: Number(r.via_link), seats_left: maxParticipants - Number(r.people) });
+    return st === "active" ? "open" : (st as JoinCodePreview["state"]);
+  };
+
+  app.get(
+    "/api/join-code/:code",
+    joinCodeLimiter,
+    route(async (req, res) => {
+      const { r } = await findByCode(String(req.params.code));
+      // Link turned off (e.g. it leaked): say so, but reveal nothing about the exchange.
+      if (!toBool(r.join_enabled)) throw new HttpError(404, "errors.joinPaused");
+      const u = await loadSessionUser(req).catch(() => null);
+      const mine = u ? (await db.query("SELECT status FROM participants WHERE event_id = ? AND email = ? LIMIT 1", [r.id, u.email]))[0] : null;
+      const preview: JoinCodePreview = {
+        event_name: r.name,
+        type_name: serviceLabel(r, reqLang(req)),
+        tenant_name: r.tenant_name,
+        organizer: r.organizer ?? r.tenant_name,
+        exchange_date: r.exchange_date ?? null,
+        budget: budgetLabel(toNum(r.budget_min), toNum(r.budget_max), r.currency),
+        theme_rules: r.theme_rules ?? null,
+        people: Number(r.people),
+        state: await previewState(r),
+        my_status: mine?.status ?? null,
+        // Only someone already in the exchange gets the link to it.
+        event_public_id: mine && mine.status === "joined" ? r.public_id : null,
+      };
+      res.json({ ok: true, preview });
+    }),
+  );
+
+  app.post(
+    "/api/join-code/:code",
+    joinCodeLimiter,
+    requireAuth(),
+    route(async (req, res) => {
+      const u = authed(res);
+      const body = z.object({ name: z.string().trim().min(1).max(120).optional() }).parse(req.body ?? {});
+      const { code, r } = await findByCode(String(req.params.code));
+      const tenantId = Number(r.tenant_id);
+      const eventId = Number(r.id);
+      const { maxParticipants } = await loadTenantEvent(tenantId, eventId);
+      const name = cleanSubjectText(body.name || (u.full_name && !u.full_name.includes("@") ? u.full_name : "") || u.email.split("@")[0], 120) || u.email.split("@")[0];
+
+      const out = await db.tx(async (tx) => {
+        // Serialize joins on this exchange (cap + plan limit are checked against a locked, fresh count).
+        const [ev] = await tx.query("SELECT id, status, join_enabled, join_max, join_expires_at FROM events WHERE id = ? AND join_code = ? FOR UPDATE", [eventId, code]);
+        if (!ev) throw new HttpError(404, "errors.joinCodeInvalid");
+        const [mine] = await tx.query("SELECT id, status, user_id FROM participants WHERE event_id = ? AND email = ? LIMIT 1 FOR UPDATE", [eventId, u.email]);
+        if (mine?.status === "joined") return { id: Number(mine.id), already: true };
+        if (mine?.status === "removed") throw new HttpError(403, "errors.joinRemoved");
+        if (!toBool(ev.join_enabled)) throw new HttpError(409, "errors.joinPaused");
+        if (ev.status === "drawn" || ev.status === "completed") throw new HttpError(409, "errors.joinClosed");
+        if (!JOINABLE_STATUSES.has(ev.status)) throw new HttpError(409, "errors.joinClosed");
+        if (isPast(ev.join_expires_at)) throw new HttpError(409, "errors.joinExpired");
+        // Locking read: TiDB/MySQL repeatable-read would otherwise count from this transaction's start snapshot,
+        // so racing joins (serialized by the event lock above) could all see the old count and overfill.
+        const seats = await tx.query("SELECT status, joined_via FROM participants WHERE event_id = ? FOR UPDATE", [eventId]);
+        const active = seats.filter((p) => p.status === "invited" || p.status === "joined");
+        const c = { people: active.length, via_link: active.filter((p) => p.joined_via === "link").length };
+        // An already-invited person (by email) takes no new seat; everyone else does.
+        const takesSeat = !mine || mine.status === "declined";
+        if (takesSeat && Number(c?.people ?? 0) + 1 > maxParticipants) throw new HttpError(409, "errors.joinFull");
+        if (!mine && ev.join_max != null && Number(c?.via_link ?? 0) >= Number(ev.join_max)) throw new HttpError(409, "errors.joinFull");
+        let pid: number;
+        if (mine) {
+          await tx.exec("UPDATE participants SET user_id = ?, status = 'joined', joined_at = COALESCE(joined_at, UTC_TIMESTAMP()) WHERE id = ?", [u.id, mine.id]);
+          pid = Number(mine.id);
+        } else {
+          const ins = await tx.exec(
+            "INSERT INTO participants (public_id, tenant_id, event_id, user_id, name, email, status, joined_via, joined_at) VALUES (?, ?, ?, ?, ?, ?, 'joined', 'link', UTC_TIMESTAMP())",
+            [newPublicId(), tenantId, eventId, u.id, name, u.email],
+          );
+          pid = ins.insertId;
+        }
+        await tx.exec("INSERT IGNORE INTO tenant_members (tenant_id, user_id, role) VALUES (?, ?, 'participant')", [tenantId, u.id]);
+        await tx.exec("UPDATE tenant_members SET status = 'active', role = 'participant' WHERE tenant_id = ? AND user_id = ? AND status = 'removed'", [tenantId, u.id]);
+        return { id: pid, already: false };
+      });
+
+      if (!out.already) {
+        await db.exec("UPDATE user_sessions SET active_tenant_id = ? WHERE id = ?", [tenantId, u.session_id]);
+        await audit(req, "participant.join_link", "participant", out.id, { tenantId, actorId: u.id, meta: { event_id: eventId } });
+        // Tell the organizer (not when they join their own exchange).
+        if (r.organizer_email && r.organizer_email !== u.email) {
+          const lang: Lang = r.organizer_locale === "es" ? "es" : "en";
+          const tpl = tplLinkJoined(lang, { who: cleanSubjectText(name, 40), email: u.email, eventName: cleanSubjectText(r.name, 60), link: `${appUrl()}/app/events/${eventId}` });
+          await sendEmail({ to: r.organizer_email, ...tpl, template: "link_joined", tenantId }).catch(() => undefined);
+        }
+      }
+      res.json({ ok: true, status: "joined", already: out.already, tenant_id: tenantId, event_public_id: r.public_id });
+    }),
+  );
 }
 
 const EVENT_GRID: GridSpec = {
@@ -1664,7 +1929,7 @@ const PARTICIPANT_GRID: GridSpec = {
   sortMap: { id: "p.id", name: "p.name", email: "p.email", status: "p.status", joined_at: "p.joined_at", created_at: "p.created_at" },
   defaultSort: "name",
   defaultDir: "ASC",
-  filters: { status: { column: "p.status", values: ["invited", "joined", "declined", "removed"] } },
+  filters: { status: { column: "p.status", values: ["invited", "joined", "declined", "removed"] }, joined_via: { column: "p.joined_via", values: ["email", "link"] } },
   search: ["p.name", "p.email"],
 };
 
@@ -1811,6 +2076,62 @@ function registerTenantRoutes(app: express.Express) {
     }),
   );
 
+  // ── Invite link (organizer): on/off, optional cap + expiry, regenerate. Free on every plan. ──
+  app.get(
+    "/api/app/events/:id/invite-link",
+    requireTenant("participants.manage"),
+    route(async (req, res) => {
+      res.json({ ok: true, link: await inviteLinkInfo(tenantCtx(res).tenant_id, parseId(req.params.id)) });
+    }),
+  );
+
+  app.put(
+    "/api/app/events/:id/invite-link",
+    writeLimiter,
+    requireTenant("participants.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const eventId = parseId(req.params.id);
+      const body = z
+        .object({
+          enabled: z.boolean().optional(),
+          max: z.number().int().min(1).max(1000).nullable().optional(),
+          expires_at: z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$/).nullable().optional(),
+        })
+        .parse(req.body ?? {});
+      const { event } = await loadTenantEvent(tenant_id, eventId);
+      if (body.enabled && ["drawn", "completed", "cancelled"].includes(event.status)) throw new HttpError(409, "errors.joinClosed");
+      // A date alone means "through the end of that day (UTC)".
+      const expires = body.expires_at == null ? body.expires_at : body.expires_at.length === 10 ? `${body.expires_at} 23:59:59` : body.expires_at;
+      if (expires && !isRealUtcDateTime(expires)) throw new HttpError(400, "validation.date");
+      if (expires && isPast(expires)) throw new HttpError(400, "validation.expiryPast");
+      const [cur] = await db.query("SELECT join_code FROM events WHERE id = ? AND tenant_id = ?", [eventId, tenant_id]);
+      if (body.enabled && !cur?.join_code) await assignJoinCode(tenant_id, eventId);
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      if (body.enabled !== undefined) (sets.push("join_enabled = ?"), vals.push(body.enabled ? 1 : 0));
+      if (body.max !== undefined) (sets.push("join_max = ?"), vals.push(body.max));
+      if (expires !== undefined) (sets.push("join_expires_at = ?"), vals.push(expires));
+      if (sets.length) await db.exec(`UPDATE events SET ${sets.join(", ")} WHERE id = ? AND tenant_id = ?`, [...vals, eventId, tenant_id]);
+      await audit(req, "event.invite_link", "event", eventId, { tenantId: tenant_id, actorId: authed(res).id, meta: body });
+      res.json({ ok: true, link: await inviteLinkInfo(tenant_id, eventId) });
+    }),
+  );
+
+  app.post(
+    "/api/app/events/:id/invite-link/regenerate",
+    writeLimiter,
+    requireTenant("participants.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const eventId = parseId(req.params.id);
+      await loadTenantEvent(tenant_id, eventId);
+      await assignJoinCode(tenant_id, eventId); // the old link/code stops working immediately
+      await audit(req, "event.invite_link_regenerate", "event", eventId, { tenantId: tenant_id, actorId: authed(res).id });
+      res.json({ ok: true, link: await inviteLinkInfo(tenant_id, eventId) });
+    }),
+  );
+
   app.post(
     "/api/app/events/:id/participants",
     writeLimiter,
@@ -1825,30 +2146,40 @@ function registerTenantRoutes(app: express.Express) {
       if (event.status === "cancelled" || event.status === "completed") throw new HttpError(409, "errors.eventClosed");
       // Dedupe the request, then count only people who aren't already active in this exchange.
       const uniq = [...new Map(body.participants.map((p) => [p.email, p])).values()];
-      const active = new Set(
-        (await db.query("SELECT email FROM participants WHERE event_id = ? AND tenant_id = ? AND status IN ('invited','joined')", [eventId, tenant_id])).map((r) => String(r.email)),
-      );
-      const incoming = uniq.filter((p) => !active.has(p.email));
-      const total = event.participant_count + incoming.length;
-      if (total > maxParticipants) {
-        const canUpgrade = event.plan === "free" && row.tenant_plan !== "enterprise" && total <= pricing.pro_max_participants;
-        throw new HttpError(402, canUpgrade ? "errors.needsPro" : "errors.participantLimit", { max: maxParticipants, free_max: pricing.free_max_participants, pro_max: pricing.pro_max_participants });
-      }
-      let added = 0;
+      // One transaction with the event row locked: serializes against invite-link joins and other adds, and
+      // counts with a locking read (a plain SELECT would read the start snapshot and let concurrent adds overfill).
+      const { added, toInvite } = await db.tx(async (tx) => {
+        const [ev] = await tx.query("SELECT status FROM events WHERE id = ? AND tenant_id = ? FOR UPDATE", [eventId, tenant_id]);
+        if (!ev) throw new HttpError(404, "errors.notFound");
+        if (ev.status === "drawn") throw new HttpError(409, "errors.alreadyDrawn");
+        if (ev.status === "cancelled" || ev.status === "completed") throw new HttpError(409, "errors.eventClosed");
+        const activeRows = await tx.query("SELECT email FROM participants WHERE event_id = ? AND tenant_id = ? AND status IN ('invited','joined') FOR UPDATE", [eventId, tenant_id]);
+        const active = new Set(activeRows.map((r) => String(r.email)));
+        const incoming = uniq.filter((p) => !active.has(p.email));
+        const total = active.size + incoming.length;
+        if (total > maxParticipants) {
+          const canUpgrade = event.plan === "free" && row.tenant_plan !== "enterprise" && total <= pricing.pro_max_participants;
+          throw new HttpError(402, canUpgrade ? "errors.needsPro" : "errors.participantLimit", { max: maxParticipants, free_max: pricing.free_max_participants, pro_max: pricing.pro_max_participants });
+        }
+        let added = 0;
+        const toInvite: Array<{ id: number; email: string }> = [];
+        for (const p of incoming) {
+          // New email → insert; previously removed/declined → back to invited by email (unique event+email).
+          // joined_via is assigned before status so it still sees the old status.
+          await tx.exec(
+            `INSERT INTO participants (public_id, tenant_id, event_id, name, email) VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE name = VALUES(name), joined_via = IF(status IN ('removed','declined'), 'email', joined_via),
+               status = IF(status IN ('removed','declined'), 'invited', status), joined_at = IF(status = 'invited', NULL, joined_at)`,
+            [newPublicId(), tenant_id, eventId, p.name, p.email],
+          );
+          const row2 = (await tx.query("SELECT id FROM participants WHERE event_id = ? AND tenant_id = ? AND email = ? LIMIT 1", [eventId, tenant_id, p.email]))[0];
+          if (!row2) continue;
+          added++;
+          toInvite.push({ id: Number(row2.id), email: p.email });
+        }
+        return { added, toInvite };
+      });
       let invited = 0;
-      const toInvite: Array<{ id: number; email: string }> = [];
-      for (const p of incoming) {
-        // New email → insert; previously removed/declined → back to invited (unique event+email).
-        await db.exec(
-          `INSERT INTO participants (public_id, tenant_id, event_id, name, email) VALUES (?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE name = VALUES(name), status = IF(status IN ('removed','declined'), 'invited', status), joined_at = IF(status = 'invited', NULL, joined_at)`,
-          [newPublicId(), tenant_id, eventId, p.name, p.email],
-        );
-        const row2 = (await db.query("SELECT id FROM participants WHERE event_id = ? AND tenant_id = ? AND email = ? LIMIT 1", [eventId, tenant_id, p.email]))[0];
-        if (!row2) continue;
-        added++;
-        toInvite.push({ id: Number(row2.id), email: p.email });
-      }
       if (body.send_invites && event.status === "pending_payment") {
         // Not paid yet: queue the invites; they go out when the workspace subscribes.
         if (toInvite.length) await db.exec("UPDATE events SET invites_pending = 1 WHERE id = ? AND tenant_id = ?", [eventId, tenant_id]);
@@ -1875,20 +2206,29 @@ function registerTenantRoutes(app: express.Express) {
       const { event, maxParticipants, pricing, row } = await loadTenantEvent(tenant_id, eventId);
       if (body.status && event.status === "drawn") throw new HttpError(409, "errors.alreadyDrawn");
       if (body.status && (event.status === "cancelled" || event.status === "completed")) throw new HttpError(409, "errors.eventClosed");
-      if (body.status === "invited") {
-        // Re-inviting a removed/declined person counts against the plan limit.
-        const cur = (await db.query("SELECT status FROM participants WHERE id = ? AND event_id = ? AND tenant_id = ?", [pid, eventId, tenant_id]))[0];
-        if (cur && !["invited", "joined"].includes(cur.status) && event.participant_count + 1 > maxParticipants) {
-          const canUpgrade = row.tenant_plan === "free" && event.participant_count + 1 <= pricing.pro_max_participants;
-          throw new HttpError(402, canUpgrade ? "errors.needsPro" : "errors.participantLimit", { max: maxParticipants, free_max: pricing.free_max_participants, pro_max: pricing.pro_max_participants });
-        }
-      }
       const sets: string[] = [];
       const params: unknown[] = [];
       if (body.name) (sets.push("name = ?"), params.push(body.name));
+      // Re-invited by the organizer = an email invite now (frees the invite link's cap); before `status` so it sees the old value.
+      if (body.status === "invited") sets.push("joined_via = IF(status IN ('removed','declined'), 'email', joined_via)");
       if (body.status) (sets.push("status = ?"), params.push(body.status));
       if (!sets.length) return void res.json({ ok: true });
-      const r = await db.exec(`UPDATE participants SET ${sets.join(", ")} WHERE id = ? AND event_id = ? AND tenant_id = ?`, [...params, pid, eventId, tenant_id]);
+      const r = await db.tx(async (tx) => {
+        if (body.status === "invited") {
+          // Re-inviting a removed/declined person takes a seat: lock the event and count with a locking read
+          // (serialized against invite-link joins and adds; a plain SELECT would read a stale snapshot).
+          await tx.query("SELECT id FROM events WHERE id = ? AND tenant_id = ? FOR UPDATE", [eventId, tenant_id]);
+          const cur = (await tx.query("SELECT status FROM participants WHERE id = ? AND event_id = ? AND tenant_id = ? FOR UPDATE", [pid, eventId, tenant_id]))[0];
+          if (cur && !["invited", "joined"].includes(cur.status)) {
+            const seats = (await tx.query("SELECT id FROM participants WHERE event_id = ? AND tenant_id = ? AND status IN ('invited','joined') FOR UPDATE", [eventId, tenant_id])).length;
+            if (seats + 1 > maxParticipants) {
+              const canUpgrade = row.tenant_plan === "free" && seats + 1 <= pricing.pro_max_participants;
+              throw new HttpError(402, canUpgrade ? "errors.needsPro" : "errors.participantLimit", { max: maxParticipants, free_max: pricing.free_max_participants, pro_max: pricing.pro_max_participants });
+            }
+          }
+        }
+        return tx.exec(`UPDATE participants SET ${sets.join(", ")} WHERE id = ? AND event_id = ? AND tenant_id = ?`, [...params, pid, eventId, tenant_id]);
+      });
       if (!r.affectedRows) throw new HttpError(404, "errors.notFound");
       await audit(req, "participant.update", "participant", pid, { tenantId: tenant_id, actorId: authed(res).id, meta: body });
       res.json({ ok: true });
@@ -1963,14 +2303,17 @@ function registerTenantRoutes(app: express.Express) {
       const includeInvited = req.body?.include_invited !== false;
       // Lock first (open → drawn), then read people + rules inside the same transaction: nothing can change in between.
       const { people, result } = await db.tx(async (tx) => {
-        const locked = await tx.exec("UPDATE events SET status = 'drawn', drawn_at = UTC_TIMESTAMP() WHERE id = ? AND tenant_id = ? AND status = 'open'", [eventId, tenant_id]);
+        // The draw also switches the invite link off: resetting the draw never silently re-opens a shared link.
+        const locked = await tx.exec("UPDATE events SET status = 'drawn', drawn_at = UTC_TIMESTAMP(), join_enabled = 0 WHERE id = ? AND tenant_id = ? AND status = 'open'", [eventId, tenant_id]);
         if (locked.affectedRows !== 1) throw new HttpError(409, "errors.alreadyDrawn");
+        // Locking reads (FOR UPDATE): under TiDB/MySQL repeatable-read a plain SELECT here would read this
+        // transaction's start snapshot and miss someone who joined (invite link) while we waited for the lock above.
         const people = await tx.query(
-          `SELECT id, email, user_id, status FROM participants WHERE event_id = ? AND tenant_id = ? AND status IN (${includeInvited ? "'invited','joined'" : "'joined'"})`,
+          `SELECT id, email, user_id, status FROM participants WHERE event_id = ? AND tenant_id = ? AND status IN (${includeInvited ? "'invited','joined'" : "'joined'"}) FOR UPDATE`,
           [eventId, tenant_id],
         );
         if (people.length < 3) throw new HttpError(400, "validation.minParticipants", { min: 3 });
-        const excl = await tx.query("SELECT giver_participant_id, receiver_participant_id, bidirectional FROM exclusions WHERE event_id = ? AND tenant_id = ?", [eventId, tenant_id]);
+        const excl = await tx.query("SELECT giver_participant_id, receiver_participant_id, bidirectional FROM exclusions WHERE event_id = ? AND tenant_id = ? FOR UPDATE", [eventId, tenant_id]);
         const result = drawAssignments(
           people.map((p) => Number(p.id)),
           expandExclusions(excl.map((x) => ({ giver: Number(x.giver_participant_id), receiver: Number(x.receiver_participant_id), bidirectional: toBool(x.bidirectional) }))),
@@ -2773,13 +3116,59 @@ function registerAdminRoutes(app: express.Express) {
   );
 
   app.get(
+    "/api/admin/leads",
+    requirePlatform("leads.manage"),
+    route(async (req, res) => {
+      const g = parseGridQuery(req.query as any, {
+        sortMap: { id: "c.id", created_at: "c.created_at", name: "c.name", company: "c.company", team_size: "c.team_size", status: "c.status" },
+        defaultSort: "created_at",
+        filters: { status: { column: "c.status", values: ["new", "contacted", "won", "lost"] }, team_size: { column: "c.team_size", values: ["lt50", "50_100", "100_500", "500_plus"] } },
+        search: ["c.name", "c.email", "c.company"],
+      });
+      res.json(
+        await runGrid(g, "c.*, u.full_name AS handled_by_name", "contact_requests c LEFT JOIN users u ON u.id = c.handled_by", (r): LeadRow => ({
+          id: Number(r.id),
+          name: r.name,
+          email: r.email,
+          company: r.company ?? null,
+          team_size: r.team_size,
+          message: r.message ?? null,
+          locale: r.locale === "es" ? "es" : "en",
+          status: r.status,
+          notes: r.notes ?? null,
+          handled_by_name: r.handled_by_name ?? null,
+          created_at: r.created_at,
+        })),
+      );
+    }),
+  );
+
+  app.patch(
+    "/api/admin/leads/:id",
+    writeLimiter,
+    requirePlatform("leads.manage"),
+    route(async (req, res) => {
+      const id = parseId(req.params.id);
+      const body = z.object({ status: z.enum(["new", "contacted", "won", "lost"]).optional(), notes: z.string().trim().max(1000).nullable().optional() }).parse(req.body ?? {});
+      const sets: string[] = ["handled_by = ?"];
+      const vals: unknown[] = [authed(res).id];
+      if (body.status) (sets.push("status = ?"), vals.push(body.status));
+      if (body.notes !== undefined) (sets.push("notes = ?"), vals.push(body.notes || null));
+      const r = await db.exec(`UPDATE contact_requests SET ${sets.join(", ")} WHERE id = ?`, [...vals, id]);
+      if (!r.affectedRows) throw new HttpError(404, "errors.notFound");
+      await audit(req, "lead.update", "contact_request", id, { actorId: authed(res).id, meta: body });
+      res.json({ ok: true });
+    }),
+  );
+
+  app.get(
     "/api/admin/emails",
     requirePlatform("emails.read"),
     route(async (req, res) => {
       const g = parseGridQuery(req.query as any, {
         sortMap: { id: "l.id", created_at: "l.created_at", to_email: "l.to_email", template: "l.template", status: "l.status" },
         defaultSort: "id",
-        filters: { status: { column: "l.status", values: ["sent", "failed", "dry_run"] }, template: { column: "l.template", values: ["otp", "invite", "assignment"] } },
+        filters: { status: { column: "l.status", values: ["sent", "failed", "dry_run"] }, template: { column: "l.template", values: ["otp", "invite", "assignment", "link_joined", "contact"] } },
         search: ["l.to_email", "t.name"],
       });
       res.json(

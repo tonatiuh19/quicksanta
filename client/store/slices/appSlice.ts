@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { BillingOverview, CancelReason, ExchangeTemplate, ParticipantRow, EventRow, ExclusionRow, MyAssignment, PricingInfo, TenantDashboard } from "@shared/api";
+import type { BillingOverview, CancelReason, InviteLinkInfo, JoinCodePreview, ExchangeTemplate, ParticipantRow, EventRow, ExclusionRow, MyAssignment, PricingInfo, TenantDashboard } from "@shared/api";
 import { api } from "@/lib/api";
 import { createApiThunk } from "@/lib/portalThunk";
 
@@ -42,6 +42,24 @@ export const updateMember = createApiThunk("app/updateMember", async (arg: { id:
 export const updateTenant = createApiThunk("app/updateTenant", async (arg: { name?: string; locale?: string }) => {
   await api.patch("/app/tenant", arg);
   return arg;
+});
+
+// ── Invite link (organizer) + join with a code (anyone, after signing in) ──
+export const fetchInviteLink = createApiThunk("app/inviteLink", async (eventId: number) => ({ eventId, link: (await api.get<{ link: InviteLinkInfo }>(`/app/events/${eventId}/invite-link`)).data.link }));
+export const updateInviteLink = createApiThunk("app/updateInviteLink", async (arg: { eventId: number; patch: { enabled?: boolean; max?: number | null; expires_at?: string | null } }) => ({
+  eventId: arg.eventId,
+  link: (await api.put<{ link: InviteLinkInfo }>(`/app/events/${arg.eventId}/invite-link`, arg.patch)).data.link,
+}));
+export const regenerateInviteLink = createApiThunk("app/regenerateInviteLink", async (eventId: number) => ({ eventId, link: (await api.post<{ link: InviteLinkInfo }>(`/app/events/${eventId}/invite-link/regenerate`, {})).data.link }));
+/** Code-scoped preview: the page keeps it in local state (nothing else reads it). */
+export const fetchJoinCode = createApiThunk("app/fetchJoinCode", async (code: string) => (await api.get<{ preview: JoinCodePreview }>(`/join-code/${encodeURIComponent(code)}`)).data.preview);
+export const joinWithCode = createApiThunk("app/joinWithCode", async (arg: { code: string; name?: string }) =>
+  (await api.post<{ status: "joined"; already: boolean; tenant_id: number; event_public_id: string }>(`/join-code/${encodeURIComponent(arg.code)}`, arg.name ? { name: arg.name } : {})).data,
+);
+
+/** Landing-page Enterprise contact form (public). */
+export const submitContact = createApiThunk("app/submitContact", async (body: import("@shared/api").ContactRequestInput) => {
+  await api.post("/contact", body);
 });
 
 // ── Pro checkout (Stripe) ──
@@ -87,11 +105,12 @@ interface AppState {
   billing: BillingOverview | null;
   templates: ExchangeTemplate[];
   people: { eventId: number; people: ParticipantRow[] } | null;
+  inviteLink: { eventId: number; link: InviteLinkInfo } | null;
   loading: Record<string, boolean>;
   error: string | null;
   busy: boolean;
 }
-const initialState: AppState = { dashboard: null, detail: null, myEvents: [], my: null, pricing: null, billing: null, templates: [], people: null, loading: {}, error: null, busy: false };
+const initialState: AppState = { dashboard: null, detail: null, myEvents: [], my: null, pricing: null, billing: null, templates: [], people: null, inviteLink: null, loading: {}, error: null, busy: false };
 
 const slice = createSlice({
   name: "app",
@@ -134,6 +153,9 @@ const slice = createSlice({
     track(fetchBilling, "billing", (s, p) => void (s.billing = p));
     track(fetchTemplates, "templates", (s, p) => void (s.templates = p));
     track(fetchEventPeople, "people", (s, p) => void (s.people = p));
+    track(fetchInviteLink, "inviteLink", (s, p) => void (s.inviteLink = p));
+    track(updateInviteLink, "inviteLinkBusy", (s, p) => void (s.inviteLink = p));
+    track(regenerateInviteLink, "inviteLinkBusy", (s, p) => void (s.inviteLink = p));
     track(deleteTemplate, "busy", (s, id) => void (s.templates = s.templates.filter((x) => x.id !== id)));
     track(acceptSaveOffer, "busy", () => undefined);
     track(cancelSubscription, "busy", () => undefined);

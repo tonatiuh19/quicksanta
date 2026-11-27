@@ -14,6 +14,7 @@ This Privacy Policy (Aviso de Privacidad) explains how **Disrupting Labs** ("we"
 | Exchange data | Exchange name, date, budget, location, participant names and emails, exclusion rules, wishlists, draw results | Organizers and participants |
 | Billing | Workspace name, subscription status, card brand, last 4 digits and expiry, invoices | You and our payment processor (Stripe) |
 | Technical | IP address, browser user agent, sign-in and activity logs | Automatically, when you use the service |
+| Sales inquiries | Name, work email, company, team size, message (and a hashed IP to prevent spam) | You, when you use the Enterprise contact form |
 
 We **never** receive or store your full card number or CVC; card details go directly to Stripe. We do not collect sensitive personal data as defined by the LFPDPPP.
 
@@ -24,6 +25,7 @@ We **never** receive or store your full card number or CVC; card details go dire
 - Create and secure your account with one-time sign-in codes.
 - Run gift exchanges: send invitations, perform fair draws, show each person only their own match and wishlist.
 - Process Pro subscriptions, invoices and payment-method updates.
+- Reply to Enterprise inquiries you send through the contact form.
 - Prevent fraud and abuse, keep audit logs, and comply with legal obligations.
 
 **Secondary purposes** (you can object at any time by emailing us): product analytics and occasional service announcements. Objecting does not affect your use of QuickSanta.
