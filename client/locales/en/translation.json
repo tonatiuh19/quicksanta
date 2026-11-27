@@ -463,7 +463,14 @@
       "addAll": "Add all",
       "invalidLines": "{{count}} line(s) without a valid email were left in the box.",
       "you": "You",
-      "youHint": "(your sign-in email)"
+      "youHint": "(your sign-in email)",
+      "youSection": "You, the organizer",
+      "organizerNamePh": "e.g. Alex Gomez",
+      "organizerHint": "Shown on the invitations you send.",
+      "organizerHintEmail": "Shown on the invitations you send · signed in as {{email}}",
+      "addTitle": "Add the people you're inviting",
+      "guestName": "Their name",
+      "guestEmail": "Their email"
     },
     "rules": {
       "title": "Any rules?",

@@ -463,7 +463,14 @@
       "addAll": "Agregar todos",
       "invalidLines": "{{count}} línea(s) sin correo válido quedaron en el cuadro.",
       "you": "Tú",
-      "youHint": "(tu correo de acceso)"
+      "youHint": "(tu correo de acceso)",
+      "youSection": "Tú, quien organiza",
+      "organizerNamePh": "p. ej. Alex Gómez",
+      "organizerHint": "Aparece en las invitaciones que envíes.",
+      "organizerHintEmail": "Aparece en las invitaciones que envíes · sesión iniciada como {{email}}",
+      "addTitle": "Agrega a las personas que invitas",
+      "guestName": "Su nombre",
+      "guestEmail": "Su correo"
     },
     "rules": {
       "title": "¿Alguna regla?",

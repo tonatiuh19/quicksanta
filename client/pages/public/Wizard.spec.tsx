@@ -79,8 +79,8 @@ describe("Wizard", () => {
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
     await userEvent.type(screen.getByLabelText(/exchange name/i), "Tiny");
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await userEvent.type(screen.getByLabelText("Name"), "Ana");
-    await userEvent.type(screen.getByLabelText("Email"), "ana@x.com");
+    await userEvent.type(screen.getByLabelText("Their name"), "Ana");
+    await userEvent.type(screen.getByLabelText("Their email"), "ana@x.com");
     await userEvent.click(screen.getByRole("button", { name: /^add$/i }));
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
     expect(screen.getByRole("alert")).toHaveTextContent("Add at least 3 people in total.");
@@ -130,8 +130,8 @@ describe("Wizard · Pro services and Create your own", () => {
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
     await userEvent.type(screen.getByLabelText(/exchange name/i), "Office Sweaters");
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await userEvent.type(screen.getByLabelText("Name"), "Ana");
-    await userEvent.type(screen.getByLabelText("Email"), "ana@x.com");
+    await userEvent.type(screen.getByLabelText("Their name"), "Ana");
+    await userEvent.type(screen.getByLabelText("Their email"), "ana@x.com");
     await userEvent.click(screen.getByRole("button", { name: /^add$/i }));
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
     // No-draw design skips Rules → straight to review

@@ -49,6 +49,12 @@ Badges (`StatusBadge`): green = active/joined/open/sent, blue = drawn/organizer/
 
 Service cards: Pro-only cards carry a red→gold "Pro" pill (lock icon on Free workspaces, crown when covered). "Create your own" is a dashed card with a bobbing gradient icon. The Design step has an icon grid (12), color swatches (8 gradients), match-mode and reveal cards, rules textarea and a "save as template" switch; the ticket preview takes the chosen gradient, icon and rules live. Saved designs show as gradient pills above the grid. Keyboard focus = gold outline; selection = red border.
 
+## Wizard · People step
+
+- Ask for a piece of information once. The organizer's name lives only in the "You, the organizer" card (`.qs-me-card`, dashed gold): name field + hint (shown on invitations / signed-in email) + "I'm taking part too" switch. It is required even when the organizer doesn't take part, and the OTP account step sends it with the code instead of asking again.
+- Guests are added under their own heading ("Add the people you're inviting", `.qs-subhead`) with fields labelled "Their name" / "Their email" — never a bare "Name" next to "Your name".
+- Validation follows field order (name, then email) and clears as soon as the user types. Avatars without a name show a person icon, not "?".
+
 ## Drafts
 
 - `DraftCard` (`client/components/DraftCard.tsx`, `.qs-draft`): a ticket with a coloured stub (service icon; custom designs use their own gradient via `--draft-accent`), a gold "Draft" pill, the exchange name (or "Untitled exchange"), people count, next step, relative "Edited …" time, where it is saved + days left, and a `ProgressRing` (`.qs-ring`, share of steps done).

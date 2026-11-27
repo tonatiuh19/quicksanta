@@ -10,12 +10,12 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { backToEmail, requestOtp, verifyOtp } from "@/store/slices/authSlice";
 import { EMAIL_RE, normalizeEmail } from "@shared/api";
 
-export default function OtpAuthCard({ defaultEmail = "", askName = false, onSignedIn, title, subtitle }: { defaultEmail?: string; askName?: boolean; onSignedIn?: () => void; title?: string; subtitle?: string }) {
+export default function OtpAuthCard({ defaultEmail = "", defaultName = "", askName = false, onSignedIn, title, subtitle }: { defaultEmail?: string; defaultName?: string; askName?: boolean; onSignedIn?: () => void; title?: string; subtitle?: string }) {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const { step, email, busy, error, isNew } = useAppSelector((s) => s.auth);
   const [emailDraft, setEmailDraft] = useState(defaultEmail);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName); // a name given earlier (wizard) is sent with the code, not asked again
   const [code, setCode] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);

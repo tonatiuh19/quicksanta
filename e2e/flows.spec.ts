@@ -331,8 +331,8 @@ test("Pro workspace: Create your own (design, live ticket, no-draw), save templa
   await page.getByRole("button", { name: /continue/i }).click();
   await page.getByLabel(/exchange name/i).fill("PW Sweater Night");
   await page.getByRole("button", { name: /continue/i }).click();
-  await page.getByLabel("Name", { exact: true }).fill("Knitter");
-  await page.getByLabel("Email", { exact: true }).fill(mail("knitter"));
+  await page.getByLabel("Their name", { exact: true }).fill("Knitter");
+  await page.getByLabel("Their email", { exact: true }).fill(mail("knitter"));
   await page.getByRole("button", { name: /^add$/i }).click();
   await page.getByRole("button", { name: /continue/i }).click();
   await expect(page.getByText(/Covered by your Pro plan/)).toBeVisible(); // no rules step, no charge

@@ -4433,3 +4433,30 @@ form .qs-modal-actions {
     justify-content: center;
   }
 }
+
+/* ── Wizard People step: the organizer ("You") card, then the guest form under its own heading ── */
+.qs-me-card {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border: 1px dashed var(--qs-gold);
+  border-radius: var(--radius);
+  background: #fffaf0;
+}
+.qs-me-card .qs-avatar {
+  margin-top: 22px;
+}
+.qs-me-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.qs-me-body .qs-fine {
+  margin: -2px 0 0;
+}
+.qs-subhead {
+  margin: 10px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+}

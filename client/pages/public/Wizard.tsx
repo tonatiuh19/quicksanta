@@ -10,7 +10,7 @@ import { useEffect, useLayoutEffect, useMemo, useState, type FormEvent } from "r
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowLeft, ArrowRight, CalendarDays, ListChecks, PartyPopper, Check, Crown, Eye, EyeOff, Gift, Lock, MapPin, Plus, Rocket, Save, Send, Shuffle, Sparkles, Trash2, Users, Wallet, X,
+  ArrowLeft, ArrowRight, CalendarDays, ListChecks, PartyPopper, Check, Crown, Eye, EyeOff, Gift, Lock, MapPin, Plus, Rocket, Save, Send, Shuffle, Sparkles, Trash2, UserRound, Users, Wallet, X,
 } from "lucide-react";
 import { parseParticipantLines, EMAIL_RE, normalizeEmail, type EventType } from "@shared/api";
 import { Brand, ErrorNote, formatBudget, formatDate, Spinner } from "@/components/kit";
@@ -54,7 +54,8 @@ export function stepError(step: WizardStep, d: ReturnType<typeof useDraft>, type
     if (d.budgetMin != null && d.budgetMax != null && d.budgetMin > d.budgetMax) return "validation.budgetRange";
   }
   if (step === "people") {
-    if (d.includeMe && !d.organizerName.trim()) return "wizard.errors.organizerName";
+    // Always required (the server rejects an empty organizerName): invitations say who is inviting.
+    if (!d.organizerName.trim()) return "wizard.errors.organizerName";
     const min = draftUsesDraw(d, type) ? 3 : 1;
     if (peopleCount < min) return "wizard.errors.minPeople";
   }
@@ -555,7 +556,9 @@ export default function Wizard() {
 
           {step === "account" && (
             <OtpAuthCard
-              askName
+              // The name was already given on the People step — never ask for it again.
+              askName={!d.organizerName.trim()}
+              defaultName={d.organizerName.trim()}
               title={t("wizard.account.title")}
               subtitle={t("wizard.account.sub")}
               onSignedIn={() => dispatch(goTo("review"))}
@@ -720,8 +723,9 @@ function PeopleStep() {
   const addOne = (e: FormEvent) => {
     e.preventDefault();
     const em = normalizeEmail(email);
-    if (!EMAIL_RE.test(em)) return setErr("validation.email");
+    // Same order as the fields (name, then email).
     if (!name.trim()) return setErr("wizard.errors.personName");
+    if (!EMAIL_RE.test(em)) return setErr("validation.email");
     setErr(null);
     dispatch(addParticipants([{ name: name.trim(), email: em }]));
     setName("");
@@ -741,17 +745,28 @@ function PeopleStep() {
       <h2>{t("wizard.people.title")}</h2>
       <p className="qs-page-sub">{t("wizard.people.sub")}</p>
       <div className="qs-form">
-        <label className="qs-switch">
-          <input type="checkbox" checked={d.includeMe} onChange={(e) => dispatch(patchDraft({ includeMe: e.target.checked, exclusions: [] }))} />
-          <span>{t("wizard.people.includeMe")}</span>
-        </label>
-        <label className="qs-field">
-          <span>{t("wizard.people.organizerName")}</span>
-          <input value={d.organizerName} maxLength={120} onChange={(e) => dispatch(patchDraft({ organizerName: e.target.value }))} autoComplete="name" />
-        </label>
-        <form className="qs-add-person" onSubmit={addOne}>
-          <input aria-label={t("wizard.people.name")} placeholder={t("wizard.people.name")} value={name} onChange={(e) => setName(e.target.value)} />
-          <input aria-label={t("wizard.people.email")} placeholder={t("wizard.people.email")} type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        {/* You (the organizer): your name lives here once — it's on every invitation, whether or not you take part. */}
+        <section className="qs-me-card" aria-label={t("wizard.people.youSection")}>
+          <span className="qs-avatar" aria-hidden>
+            {d.organizerName.trim() ? d.organizerName.trim().slice(0, 1).toUpperCase() : <UserRound size={18} />}
+          </span>
+          <div className="qs-me-body">
+            <label className="qs-field">
+              <span>{t("wizard.people.organizerName")}</span>
+              <input value={d.organizerName} maxLength={120} placeholder={t("wizard.people.organizerNamePh")} onChange={(e) => dispatch(patchDraft({ organizerName: e.target.value }))} autoComplete="name" />
+            </label>
+            <p className="qs-fine">{user?.email ? t("wizard.people.organizerHintEmail", { email: user.email }) : t("wizard.people.organizerHint")}</p>
+            <label className="qs-switch">
+              <input type="checkbox" checked={d.includeMe} onChange={(e) => dispatch(patchDraft({ includeMe: e.target.checked, exclusions: [] }))} />
+              <span>{t("wizard.people.includeMe")}</span>
+            </label>
+          </div>
+        </section>
+
+        <h3 className="qs-subhead">{t("wizard.people.addTitle")}</h3>
+        <form className="qs-add-person" onSubmit={addOne} noValidate>
+          <input aria-label={t("wizard.people.guestName")} placeholder={t("wizard.people.guestName")} value={name} autoComplete="off" onChange={(e) => (setName(e.target.value), setErr(null))} />
+          <input aria-label={t("wizard.people.guestEmail")} placeholder={t("wizard.people.guestEmail")} type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => (setEmail(e.target.value), setErr(null))} />
           <Button type="submit" variant="outline">
             <Plus /> {t("wizard.people.add")}
           </Button>
@@ -772,7 +787,7 @@ function PeopleStep() {
         <ul className="qs-people" aria-label={t("wizard.steps.people")}>
           {d.includeMe ? (
             <li className="is-me">
-              <span className="qs-avatar">{(d.organizerName || "?").slice(0, 1).toUpperCase()}</span>
+              <span className="qs-avatar" aria-hidden>{d.organizerName.trim() ? d.organizerName.trim().slice(0, 1).toUpperCase() : <UserRound size={18} />}</span>
               <span className="qs-people-copy">
                 <strong>{d.organizerName || t("wizard.people.you")}</strong>
                 <span>{user?.email ?? t("wizard.people.youHint")}</span>
