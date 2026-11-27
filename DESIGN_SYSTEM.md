@@ -84,7 +84,16 @@ Service cards: Pro-only cards carry a red→gold "Pro" pill (lock icon on Free w
 
 ## Email chrome
 
-`emailLayout()` in `api/index.ts`: cream background, 520px white card, red header "🎁 QuickSanta", red pill CTA, muted footer. Templates: OTP (big spaced code), invitation, assignment ready. EN/ES by `Accept-Language`.
+**Minimal & clean.** `renderEmail(lang, spec)` in `api/index.ts` builds HTML **and** plain text from one structured spec:
+`subject`, `preheader` (hidden inbox preview line), optional `kicker`, `title`, `blocks`, optional `cta`, `reason`.
+
+- Chrome: warm off-white page (#f6f4f1), logo image (`/icon-192.png`, 28px) + "QuickSanta" above a 560px white card (16px radius, 1px #ebe5de border, 36/40px padding; 28/22px under 600px). Footer: why you got it · help email · Privacy · "QuickSanta · Disrupting Labs · México".
+- Type: system font stack; h1 24px/700; body 15px/1.65 #3f3a36; muted #8a8079. One accent: #b91c1c.
+- Blocks: `p`, `details` (label/value rows in a soft box, empty rows dropped), `code` (34px monospace, spaced — OTP), `quote` (left rule, keeps line breaks), `note` (small muted), `html` (trusted only).
+- Button: bulletproof — VML roundrect for Outlook, padded link elsewhere — followed by "Button not working? Copy this link".
+- Dark mode: `color-scheme` meta + `prefers-color-scheme` overrides on `.qs-bg/.qs-card/.qs-text/.qs-muted/.qs-box`.
+- Dates via `fmtEmailDate` ("Thursday, December 24, 2026" / "jueves, 24 de diciembre de 2026", UTC). Every user string is escaped; subjects/titles from user input go through `cleanSubjectText`.
+- Templates: otp, invite, reminder, assignment (+ together), reveal_day, link_joined, pro_welcome, payment_failed, pro_ended, cancel_scheduled, resumed, contact (internal). Preview all of them in **Command Center → Email gallery** (EN/ES, phone, dark, text, send a test to yourself). Add new ones to `EMAIL_PREVIEWS`.
 
 ## Copy
 

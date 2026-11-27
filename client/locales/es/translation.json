@@ -441,6 +441,12 @@
         "title": "¿Cancelar este intercambio?",
         "body": "Los participantes ya no lo verán.",
         "cta": "Cancelar intercambio"
+      },
+      "remind": {
+        "title": "¿Enviar un recordatorio?",
+        "body_one": "Enviaremos un recordatorio amable con un enlace nuevo a la {{count}} persona que no se ha unido. Puedes hacerlo una vez al día.",
+        "body_other": "Enviaremos un recordatorio amable con un enlace nuevo a las {{count}} personas que no se han unido. Puedes hacerlo una vez al día.",
+        "cta": "Enviar recordatorio"
       }
     }
   },
@@ -465,7 +471,13 @@
     "via": {
       "email": "Invitación por correo",
       "link": "Enlace de invitación"
-    }
+    },
+    "pendingInfo_one": "{{count}} persona aún no se une.",
+    "pendingInfo_other": "{{count}} personas aún no se unen.",
+    "remind_one": "Recordar a {{count}} persona",
+    "remind_other": "Recordar a {{count}} personas",
+    "remindedToast_one": "Recordatorio enviado a {{count}} persona.",
+    "remindedToast_other": "Recordatorio enviado a {{count}} personas."
   },
   "members": {
     "sub": "Todos en este espacio y su rol.",
@@ -667,7 +679,8 @@
       "sectionActivity": "Actividad",
       "sectionPlatform": "Plataforma",
       "payments": "Pagos",
-      "leads": "Prospectos"
+      "leads": "Prospectos",
+      "emailGallery": "Galería de correos"
     },
     "overview": {
       "title": "Centro de control",
@@ -735,7 +748,15 @@
         "invite": "Invitación",
         "assignment": "Resultado del sorteo",
         "link_joined": "Se unió por enlace",
-        "contact": "Solicitud empresarial"
+        "contact": "Solicitud empresarial",
+        "reminder": "Recordatorio",
+        "reveal_day": "Día de la revelación",
+        "pro_welcome": "Bienvenida a Pro",
+        "payment_failed": "Pago fallido",
+        "pro_ended": "De vuelta a Gratis",
+        "cancel_scheduled": "Cancelación programada",
+        "resumed": "Suscripción reactivada",
+        "test": "Prueba (galería)"
       }
     },
     "audit": {
@@ -802,6 +823,39 @@
         "message": "Mensaje",
         "handledBy": "Atendió"
       }
+    },
+    "gallery": {
+      "sub": "Todos los correos que envía QuickSanta, con datos de ejemplo. Revisa ambos idiomas, el ancho de celular y el modo oscuro, y envíate una prueba.",
+      "templates": "Plantillas",
+      "language": "Idioma",
+      "width": "Ancho",
+      "desktop": "Escritorio",
+      "phone": "Celular",
+      "theme": "Tema",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "format": "Formato",
+      "text": "Texto plano",
+      "sendTest": "Enviarme una prueba",
+      "sent": "Prueba enviada a {{email}}.",
+      "sentDry": "Prueba simulada: aquí no hay RESEND_API_KEY, así que no se entregó nada a {{email}} (revisa el log del servidor).",
+      "subject": "Asunto",
+      "previewOf": "Vista previa de {{name}}",
+      "names": {
+        "otp": "Código de acceso",
+        "invite": "Invitación",
+        "reminder": "Recordatorio para unirse",
+        "assignment": "Sorteo listo",
+        "assignment_together": "Sorteo listo (revelación conjunta)",
+        "reveal_day": "Día de la revelación",
+        "link_joined": "Alguien se unió por enlace",
+        "pro_welcome": "Bienvenida a Pro",
+        "payment_failed": "Pago fallido",
+        "pro_ended": "De vuelta a Gratis",
+        "cancel_scheduled": "Cancelación programada",
+        "resumed": "Suscripción reactivada",
+        "contact": "Solicitud empresarial (interno)"
+      }
     }
   },
   "errors": {
@@ -856,7 +910,9 @@
     "joinClosed": "Este intercambio ya no acepta personas (el sorteo ya se hizo).",
     "joinExpired": "Este enlace de invitación venció.",
     "joinFull": "Este intercambio está lleno.",
-    "joinRemoved": "Quien organiza te quitó de este intercambio. Pregúntale si debe volver a agregarte."
+    "joinRemoved": "Quien organiza te quitó de este intercambio. Pregúntale si debe volver a agregarte.",
+    "nobodyToRemind": "Todos ya se unieron: no hay a quién recordar.",
+    "remindedToday": "Ya enviaste un recordatorio hoy. Inténtalo mañana."
   },
   "validation": {
     "invalid": "Revisa los campos.",

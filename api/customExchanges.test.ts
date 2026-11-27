@@ -223,7 +223,7 @@ describe("audit regressions", () => {
   });
 
   it("'together' draw email doesn't promise an instant reveal", () => {
-    expect(tplAssignment("en", { eventName: "X", link: "https://x", revealOn: "2026-12-24" }).text).toContain("together on 2026-12-24");
+    expect(tplAssignment("en", { eventName: "X", link: "https://x", revealOn: "2026-12-24" }).text).toContain("together on Thursday, December 24, 2026");
   });
 
   it("the Command Center can't make 'Create your own' free", async () => {

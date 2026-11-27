@@ -182,7 +182,7 @@ describe("joining with a code", () => {
     expect(ins.params.slice(1)).toEqual([7, 5, 3, "Nia New", "new@example.com"]);
     expect(fake.find(/INSERT IGNORE INTO tenant_members/)!.params).toEqual([7, 3]);
     const mail = __test.emailDryRuns.find((m) => m.to === "olga@example.com")!;
-    expect(mail.subject).toBe('New person in "Office": Nia New');
+    expect(mail.subject).toBe("New person in “Office”: Nia New");
     expect(mail.html).toContain("new@example.com"); // who it really is, whatever name they typed
   });
 

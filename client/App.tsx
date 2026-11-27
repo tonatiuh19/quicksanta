@@ -28,6 +28,7 @@ const AdminEvents = lazy(() => import("@/pages/admin/Events"));
 const Payments = lazy(() => import("@/pages/admin/Payments"));
 const Emails = lazy(() => import("@/pages/admin/Emails"));
 const Leads = lazy(() => import("@/pages/admin/Leads"));
+const EmailGallery = lazy(() => import("@/pages/admin/EmailGallery"));
 const Audit = lazy(() => import("@/pages/admin/Audit"));
 const Catalog = lazy(() => import("@/pages/admin/Catalog"));
 const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
@@ -69,6 +70,7 @@ export function AppRoutes() {
           <Route path="payments" element={<Payments />} />
           <Route path="leads" element={<Leads />} />
           <Route path="emails" element={<Emails />} />
+          <Route path="email-gallery" element={<EmailGallery />} />
           <Route path="audit" element={<Audit />} />
           <Route path="catalog" element={<Catalog />} />
           <Route path="settings" element={<AdminSettings />} />

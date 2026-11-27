@@ -138,6 +138,8 @@ test("participant + join + admin", async ({ page, context }) => {
   await shot(page, "43-admin-catalog");
   await page.goto("/admin/leads");
   await shot(page, "44-admin-leads");
+  await page.goto("/admin/email-gallery");
+  await shot(page, "45-admin-email-gallery");
   await context.clearCookies();
   await page.goto("/join/invalidtokeninvalidtoken");
   await shot(page, "50-join-invalid");

@@ -441,6 +441,12 @@
         "title": "Cancel this exchange?",
         "body": "Participants will no longer see it.",
         "cta": "Cancel exchange"
+      },
+      "remind": {
+        "title": "Send a reminder?",
+        "body_one": "We'll email a friendly reminder with a fresh join link to the {{count}} person who hasn't joined. You can do this once a day.",
+        "body_other": "We'll email a friendly reminder with a fresh join link to the {{count}} people who haven't joined. You can do this once a day.",
+        "cta": "Send reminder"
       }
     }
   },
@@ -465,7 +471,13 @@
     "via": {
       "email": "Email invite",
       "link": "Invite link"
-    }
+    },
+    "pendingInfo_one": "{{count}} person hasn't joined yet.",
+    "pendingInfo_other": "{{count}} people haven't joined yet.",
+    "remind_one": "Remind {{count}} person",
+    "remind_other": "Remind {{count}} people",
+    "remindedToast_one": "Reminder sent to {{count}} person.",
+    "remindedToast_other": "Reminder sent to {{count}} people."
   },
   "members": {
     "sub": "Everyone in this workspace and their role.",
@@ -667,7 +679,8 @@
       "sectionActivity": "Activity",
       "sectionPlatform": "Platform",
       "payments": "Payments",
-      "leads": "Leads"
+      "leads": "Leads",
+      "emailGallery": "Email gallery"
     },
     "overview": {
       "title": "Mission control",
@@ -735,7 +748,15 @@
         "invite": "Invitation",
         "assignment": "Draw result",
         "link_joined": "Joined via link",
-        "contact": "Enterprise inquiry"
+        "contact": "Enterprise inquiry",
+        "reminder": "Reminder",
+        "reveal_day": "Reveal day",
+        "pro_welcome": "Welcome to Pro",
+        "payment_failed": "Payment failed",
+        "pro_ended": "Back to Free",
+        "cancel_scheduled": "Cancellation scheduled",
+        "resumed": "Subscription resumed",
+        "test": "Test (gallery)"
       }
     },
     "audit": {
@@ -802,6 +823,39 @@
         "message": "Message",
         "handledBy": "Handled by"
       }
+    },
+    "gallery": {
+      "sub": "Every email QuickSanta sends, with sample data. Check both languages, phone width and dark mode, then send yourself a test.",
+      "templates": "Templates",
+      "language": "Language",
+      "width": "Width",
+      "desktop": "Desktop",
+      "phone": "Phone",
+      "theme": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "format": "Format",
+      "text": "Plain text",
+      "sendTest": "Send a test to me",
+      "sent": "Test sent to {{email}}.",
+      "sentDry": "Dry run: no RESEND_API_KEY here, so nothing was delivered to {{email}} (see the server log).",
+      "subject": "Subject",
+      "previewOf": "Preview of {{name}}",
+      "names": {
+        "otp": "Sign-in code",
+        "invite": "Invitation",
+        "reminder": "Reminder to join",
+        "assignment": "Draw is ready",
+        "assignment_together": "Draw is ready (reveal together)",
+        "reveal_day": "Reveal day",
+        "link_joined": "Someone joined via link",
+        "pro_welcome": "Welcome to Pro",
+        "payment_failed": "Payment failed",
+        "pro_ended": "Back to Free",
+        "cancel_scheduled": "Cancellation scheduled",
+        "resumed": "Subscription resumed",
+        "contact": "Enterprise inquiry (internal)"
+      }
     }
   },
   "errors": {
@@ -856,7 +910,9 @@
     "joinClosed": "This exchange isn't taking new people (the draw already ran).",
     "joinExpired": "This invite link has expired.",
     "joinFull": "This exchange is full.",
-    "joinRemoved": "The organizer removed you from this exchange. Ask them if you should be added back."
+    "joinRemoved": "The organizer removed you from this exchange. Ask them if you should be added back.",
+    "nobodyToRemind": "Everyone has already joined: nobody to remind.",
+    "remindedToday": "You already sent a reminder today. Try again tomorrow."
   },
   "validation": {
     "invalid": "Please check the highlighted fields.",

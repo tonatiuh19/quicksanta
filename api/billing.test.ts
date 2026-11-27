@@ -197,7 +197,7 @@ describe("subscription billing", () => {
   it("sync: active subscription → tenant Pro, card stored, pending exchanges opened with queued invites", async () => {
     fakeBilling({ sub: sub({ status: "active" }) });
     fake.on(/FROM tenants WHERE id = \?/, [tenantRow({ stripe_customer_id: "cus_123456", stripe_subscription_id: "sub_123456" })]);
-    fake.on(/SELECT id, plan, locale, stripe_subscription_id, subscription_status, past_due_since FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "free", stripe_subscription_id: "sub_123456" }]);
+    fake.on(/SELECT id, name, plan, locale, stripe_subscription_id, subscription_status, past_due_since, cancel_at_period_end FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "free", stripe_subscription_id: "sub_123456" }]);
     fake.on(/WHERE e.tenant_id = \? AND \(e.status = 'pending_payment'/, [{ id: 50, name: "Big", exchange_date: null, budget_min: null, budget_max: null, currency: "USD", invites_pending: 1, name_en: "Secret Santa", name_es: "Amigo", organizer: "Org" }]);
     fake.on(/status = 'invited' AND invite_token_hash IS NULL/, [{ id: 1, email: "a@example.com" }, { id: 2, email: "b@example.com" }]);
     const r = await request(app).post("/api/app/billing/sync").set("Cookie", sessionCookie);
@@ -223,7 +223,7 @@ describe("subscription billing", () => {
   it("update card: SetupIntent, then default payment method on customer + subscription; past_due retries the open invoice", async () => {
     const b = fakeBilling({ sub: sub({ status: "past_due" }) });
     fake.on(/FROM tenants WHERE id = \?/, [tenantRow({ plan: "pro", stripe_customer_id: "cus_123456", stripe_subscription_id: "sub_123456", subscription_status: "past_due" })]);
-    fake.on(/SELECT id, plan, locale, stripe_subscription_id, subscription_status, past_due_since FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "pro", stripe_subscription_id: "sub_123456" }]);
+    fake.on(/SELECT id, name, plan, locale, stripe_subscription_id, subscription_status, past_due_since, cancel_at_period_end FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "pro", stripe_subscription_id: "sub_123456" }]);
     expect((await request(app).post("/api/app/billing/payment-method/setup").set("Cookie", sessionCookie)).body.client_secret).toBe("seti_123_secret");
     const r = await request(app).post("/api/app/billing/payment-method").set("Cookie", sessionCookie).send({ payment_method_id: "pm_card_mastercard" });
     expect(r.body).toMatchObject({ card: { last4: "4444" }, retried: "paid" });
@@ -299,7 +299,7 @@ describe("Stripe webhook", () => {
   it("rejects bad signatures and syncs the workspace on subscription events", async () => {
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
     fakeBilling({ sub: sub({ status: "canceled" }) });
-    fake.on(/SELECT id, plan, locale, stripe_subscription_id, subscription_status, past_due_since FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "pro", stripe_subscription_id: "sub_123456" }]);
+    fake.on(/SELECT id, name, plan, locale, stripe_subscription_id, subscription_status, past_due_since, cancel_at_period_end FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "pro", stripe_subscription_id: "sub_123456" }]);
     const bad = await request(app).post("/api/webhooks/stripe").set("stripe-signature", "nope").set("Content-Type", "application/json").send("{}");
     expect(bad.status).toBe(400);
     const ok = await request(app).post("/api/webhooks/stripe").set("stripe-signature", "good").set("Content-Type", "application/json").send('{"id":"evt"}');
@@ -313,7 +313,7 @@ describe("Stripe webhook", () => {
   it("ignores stale events for an old subscription of the same customer", async () => {
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
     fakeBilling({ sub: sub({ id: "sub_OLD", status: "canceled" }) });
-    fake.on(/SELECT id, plan, locale, stripe_subscription_id, subscription_status, past_due_since FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "pro", stripe_subscription_id: "sub_NEW" }]);
+    fake.on(/SELECT id, name, plan, locale, stripe_subscription_id, subscription_status, past_due_since, cancel_at_period_end FROM tenants WHERE stripe_customer_id = \?/, [{ id: 7, plan: "pro", stripe_subscription_id: "sub_NEW" }]);
     await request(app).post("/api/webhooks/stripe").set("stripe-signature", "good").set("Content-Type", "application/json").send("{}");
     expect(fake.find(/UPDATE tenants SET stripe_subscription_id = \?/)).toBeUndefined();
     delete process.env.STRIPE_WEBHOOK_SECRET;

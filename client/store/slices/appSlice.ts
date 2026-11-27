@@ -26,6 +26,8 @@ export const removeExclusion = createApiThunk("app/removeExclusion", async (arg:
   await api.delete(`/app/events/${arg.eventId}/exclusions/${arg.id}`);
   return arg;
 });
+/** Remind everyone still "invited" (fresh join link; once per exchange per day). */
+export const remindPending = createApiThunk("app/remindPending", async (id: number) => (await api.post<{ reminded: number; pending: number }>(`/app/events/${id}/remind`, {})).data);
 export const runDraw = createApiThunk("app/draw", async (id: number) => (await api.post<{ assigned: number; notified: number }>(`/app/events/${id}/draw`, {})).data);
 export const resetDraw = createApiThunk("app/resetDraw", async (id: number) => {
   await api.post(`/app/events/${id}/reset-draw`);
@@ -141,6 +143,7 @@ const slice = createSlice({
     track(fetchMyAssignment, "my", (s, p) => void (s.my = p));
     track(updateEvent, "busy", (s, p) => void (s.detail && (s.detail.event = p)));
     track(runDraw, "busy", () => undefined);
+    track(remindPending, "busy", () => undefined);
     track(resetDraw, "busy", () => undefined);
     track(addParticipants, "busy", () => undefined);
     track(saveWishlist, "busy", (s, p) => void (s.my && (s.my.me.wishlist = p)));

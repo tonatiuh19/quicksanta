@@ -228,6 +228,17 @@ paths:
       responses:
         '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/app/events/{id}/remind:
+    post:
+      tags: [Participants]
+      summary: POST /api/app/events/:id/remind
+      description: "Guard: requireTenant(participants.manage). Emails a friendly reminder (fresh join link, Reply-To organizer) to everyone still 'invited'. Once per exchange per UTC day (429 errors.remindedToday); only while open (409 otherwise); 400 errors.nobodyToRemind."
+      security: [{ session: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/app/events/{id}/invite-link:
     get:
       tags: [Participants]
@@ -607,6 +618,37 @@ paths:
       responses:
         '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/email-previews:
+    get:
+      tags: [Admin]
+      summary: GET /api/admin/email-previews
+      description: "Guard: requirePlatform(emails.read). Every email template key with its EN subject."
+      security: [{ session: [] }]
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/email-previews/{key}:
+    get:
+      tags: [Admin]
+      summary: GET /api/admin/email-previews/:key
+      description: "Guard: requirePlatform(emails.read). Rendered sample { subject, html, text } (?lang=en|es)."
+      security: [{ session: [] }]
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string, example: invite } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /api/admin/email-previews/{key}/send:
+    post:
+      tags: [Admin]
+      summary: POST /api/admin/email-previews/:key/send
+      description: "Guard: requirePlatform(emails.read). Sends the sample ([Test] subject) to the signed-in admin's own email only (body { lang })."
+      security: [{ session: [] }]
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string, example: invite } }
+      responses:
+        '200': { description: OK }
+        '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /api/admin/emails:
     get:
       tags: [Command Center]
@@ -644,7 +686,7 @@ paths:
     get:
       tags: [Cron]
       summary: GET /api/cron/cleanup
-      description: "Bearer CRON_SECRET. Purges old OTP codes, expired/closed sessions and wizard drafts untouched for 30 days."
+      description: "Bearer CRON_SECRET. Purges old OTP codes, expired/closed sessions and wizard drafts untouched for 30 days; sends reveal-day emails (together reveal, once per exchange) and Pro-ended emails when a failed renewal outlives the grace period (deduped via email_notices)."
       responses:
         '200': { description: OK }
         '4XX': { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

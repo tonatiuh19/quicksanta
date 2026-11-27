@@ -409,7 +409,7 @@ async function audit(
   }
 }
 
-type EmailMsg = { to: string; subject: string; html: string; text: string; template: string; tenantId?: number | null };
+type EmailMsg = { to: string; subject: string; html: string; text: string; template: string; tenantId?: number | null; replyTo?: string | null };
 const emailDryRuns: EmailMsg[] = [];
 let resendClient: Resend | null = null;
 /** Test seam: replace the email transport (returns provider id or throws). */
@@ -435,6 +435,7 @@ async function sendEmail(m: EmailMsg): Promise<{ ok: boolean; dryRun: boolean }>
         subject: m.subject,
         html: m.html,
         text: m.text,
+        ...(m.replyTo ? { replyTo: m.replyTo } : {}),
       });
       if ((r as any)?.error) throw new Error((r as any).error.message || "resend error");
       providerId = (r as any)?.data?.id ?? null;
@@ -459,83 +460,364 @@ const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 type Lang = "en" | "es";
-function emailLayout(lang: Lang, title: string, bodyHtml: string, cta?: { href: string; label: string }) {
-  const foot = lang === "es" ? "Recibiste este correo por QuickSanta." : "You received this email from QuickSanta.";
-  return `<!doctype html><html><body style="margin:0;background:#fdf6ec;font-family:Manrope,Segoe UI,Arial,sans-serif;color:#1f1a17">
-<table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px"><tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:18px;overflow:hidden;border:1px solid #f1e4cf">
-<tr><td style="background:#991b1b;padding:20px 28px;color:#fff;font-size:20px;font-weight:800">🎁 QuickSanta</td></tr>
-<tr><td style="padding:28px"><h1 style="margin:0 0 12px;font-size:22px">${esc(title)}</h1>${bodyHtml}
-${cta ? `<p style="margin:24px 0 0"><a href="${esc(cta.href)}" style="display:inline-block;background:#b91c1c;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:700">${esc(cta.label)}</a></p>` : ""}
-</td></tr><tr><td style="padding:16px 28px;color:#8a7f73;font-size:12px;border-top:1px solid #f1e4cf">${foot}</td></tr></table></td></tr></table></body></html>`;
+
+// ── Email design system (minimal & clean). One layout, structured blocks → HTML + plain text from the same content.
+// Rules: every user-supplied string is escaped here; `html` blocks are for trusted markup only. Keep ≤ 560px, system
+// fonts, one accent (#b91c1c), bulletproof (VML) button for Outlook, dark-mode overrides for clients that support them.
+export type EmailBlock =
+  | { p: string }
+  | { details: Array<[string, string | null | undefined]> }
+  | { code: string }
+  | { quote: string }
+  | { note: string }
+  | { html: string; text: string };
+export interface EmailSpec {
+  subject: string;
+  /** Inbox preview line (hidden in the body). */
+  preheader: string;
+  kicker?: string;
+  title: string;
+  blocks: EmailBlock[];
+  cta?: { href: string; label: string };
+  /** Why the recipient got this email (footer). */
+  reason: string;
+}
+export interface RenderedEmail {
+  subject: string;
+  html: string;
+  text: string;
 }
 
-export function tplOtp(lang: Lang, code: string) {
-  const title = lang === "es" ? "Tu código de acceso" : "Your sign-in code";
-  const p =
-    lang === "es"
-      ? "Usa este código para entrar. Vence en 10 minutos. Si no lo pediste, ignora este correo."
-      : "Use this code to sign in. It expires in 10 minutes. If you didn't request it, ignore this email.";
-  const html = emailLayout(
-    lang,
-    title,
-    `<p style="margin:0 0 18px;line-height:1.6">${p}</p><p style="font-size:34px;letter-spacing:10px;font-weight:800;margin:0;color:#991b1b">${esc(code)}</p>`,
-  );
-  return { subject: `${code} · ${title}`, html, text: `${title}: ${code}\n${p}` };
+const EMAIL_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const EMAIL_MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace";
+
+export function fmtEmailDate(lang: Lang, v: string | null | undefined): string | null {
+  if (!v) return null;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T12:00:00Z` : `${String(v).replace(" ", "T")}${/[zZ]|[+-]\d\d:?\d\d$/.test(v) ? "" : "Z"}`;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return v;
+  return new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(d);
 }
 
-export function tplInvite(lang: Lang, o: { organizer: string; eventName: string; typeName: string; date: string | null; budget: string | null; themeRules?: string | null; link: string }) {
+function emailButton(href: string, label: string) {
+  const h = esc(href);
+  const l = esc(label);
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0"><tr><td>
+<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${h}" style="height:46px;v-text-anchor:middle;width:260px" arcsize="22%" stroke="f" fillcolor="#b91c1c"><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold">${l}</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a href="${h}" style="display:inline-block;background:#b91c1c;color:#ffffff;text-decoration:none;font:600 15px/1 ${EMAIL_FONT};padding:15px 26px;border-radius:10px">${l}</a><!--<![endif]-->
+</td></tr></table>`;
+}
+
+function blockHtml(b: EmailBlock): string {
+  if ("p" in b) return `<p class="qs-text" style="margin:0 0 14px;font:15px/1.65 ${EMAIL_FONT};color:#3f3a36">${esc(b.p)}</p>`;
+  if ("note" in b) return `<p class="qs-muted" style="margin:18px 0 0;font:13px/1.6 ${EMAIL_FONT};color:#8a8079">${esc(b.note)}</p>`;
+  if ("quote" in b)
+    return `<p class="qs-text" style="margin:4px 0 16px;padding:2px 0 2px 14px;border-left:3px solid #e9d7d4;font:italic 15px/1.6 ${EMAIL_FONT};color:#3f3a36">${esc(b.quote).replace(/\r?\n/g, "<br>")}</p>`;
+  if ("code" in b)
+    return `<div class="qs-box" style="margin:8px 0 6px;padding:18px;border:1px solid #ebe5de;border-radius:12px;background:#faf8f5;text-align:center"><span style="font:700 34px/1 ${EMAIL_MONO};letter-spacing:10px;color:#1f1a17" class="qs-text">${esc(b.code)}</span></div>`;
+  if ("details" in b) {
+    const rows = b.details
+      .filter(([, v]) => v != null && String(v).trim() !== "")
+      .map(
+        ([k, v], i) =>
+          `<tr><td class="qs-muted qs-row" style="padding:10px 0;${i ? "border-top:1px solid #efe9e2;" : ""}font:13px/1.4 ${EMAIL_FONT};color:#8a8079;width:38%;vertical-align:top">${esc(k)}</td><td class="qs-text qs-row" style="padding:10px 0;${i ? "border-top:1px solid #efe9e2;" : ""}font:600 14px/1.4 ${EMAIL_FONT};color:#1f1a17">${esc(v)}</td></tr>`,
+      )
+      .join("");
+    return `<table role="presentation" class="qs-box" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 10px;padding:4px 18px;border:1px solid #ebe5de;border-radius:12px;background:#faf8f5">${rows}</table>`;
+  }
+  return b.html;
+}
+
+function blockText(b: EmailBlock): string {
+  if ("p" in b) return b.p;
+  if ("note" in b) return b.note;
+  if ("quote" in b) return `“${b.quote}”`;
+  if ("code" in b) return b.code;
+  if ("details" in b) return b.details.filter(([, v]) => v != null && String(v).trim() !== "").map(([k, v]) => `${k}: ${v}`).join("\n");
+  return b.text;
+}
+
+export function renderEmail(lang: Lang, e: EmailSpec): RenderedEmail {
   const es = lang === "es";
-  const title = es ? `${o.organizer} te invitó a "${o.eventName}"` : `${o.organizer} invited you to "${o.eventName}"`;
-  const lines = [
-    `<strong>${esc(o.typeName)}</strong>`,
-    o.date ? `${es ? "Fecha" : "Date"}: ${esc(o.date)}` : "",
-    o.budget ? `${es ? "Presupuesto" : "Budget"}: ${esc(o.budget)}` : "",
-    o.themeRules ? `${es ? "Reglas" : "House rules"}: ${esc(o.themeRules)}` : "",
-  ].filter(Boolean);
-  const html = emailLayout(lang, title, `<p style="margin:0;line-height:1.8">${lines.join("<br>")}</p>`, { href: o.link, label: es ? "Unirme" : "Join the exchange" });
-  return { subject: title, html, text: `${title}\n${o.link}` };
+  const app = appUrl();
+  const help = es ? "¿Dudas? Escríbenos a" : "Questions? Write to";
+  const privacy = es ? "Privacidad" : "Privacy";
+  const fallback = es ? "¿El botón no funciona? Copia este enlace:" : "Button not working? Copy this link:";
+  const html = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(e.subject)}</title>
+<style>
+@media (prefers-color-scheme: dark){.qs-bg{background:#141110!important}.qs-card{background:#1d1917!important;border-color:#2e2926!important}.qs-text{color:#f3ede7!important}.qs-muted{color:#a99e95!important}.qs-box{background:#262120!important;border-color:#3a332f!important}.qs-row{border-color:#3a332f!important}.qs-brand{color:#f3ede7!important}}
+@media only screen and (max-width:600px){.qs-pad{padding:28px 22px!important}.qs-h1{font-size:22px!important}}
+</style></head>
+<body class="qs-bg" style="margin:0;padding:0;background:#f6f4f1;-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all">${esc(e.preheader)}${"&nbsp;&zwnj;".repeat(40)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="qs-bg" style="background:#f6f4f1"><tr><td align="center" style="padding:32px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
+<tr><td style="padding:0 6px 18px"><a href="${esc(app)}" style="text-decoration:none"><img src="${esc(app)}/icon-192.png" width="28" height="28" alt="" style="vertical-align:middle;border:0;border-radius:7px"> <span class="qs-brand" style="vertical-align:middle;font:700 16px/1 ${EMAIL_FONT};color:#1f1a17">QuickSanta</span></a></td></tr>
+<tr><td class="qs-card qs-pad" style="background:#ffffff;border:1px solid #ebe5de;border-radius:16px;padding:36px 40px">
+${e.kicker ? `<p style="margin:0 0 8px;font:700 11px/1.4 ${EMAIL_FONT};letter-spacing:.12em;text-transform:uppercase;color:#b91c1c">${esc(e.kicker)}</p>` : ""}
+<h1 class="qs-text qs-h1" style="margin:0 0 16px;font:700 24px/1.3 ${EMAIL_FONT};letter-spacing:-.01em;color:#1f1a17">${esc(e.title)}</h1>
+${e.blocks.map(blockHtml).join("\n")}
+${e.cta ? `${emailButton(e.cta.href, e.cta.label)}<p class="qs-muted" style="margin:18px 0 0;font:12px/1.5 ${EMAIL_FONT};color:#8a8079">${fallback}<br><a href="${esc(e.cta.href)}" style="color:#8a8079;word-break:break-all">${esc(e.cta.href)}</a></p>` : ""}
+</td></tr>
+<tr><td class="qs-muted" style="padding:20px 10px 0;font:12px/1.7 ${EMAIL_FONT};color:#8a8079">${esc(e.reason)}<br>${help} <a href="mailto:alex@disruptinglabs.com" style="color:#8a8079">alex@disruptinglabs.com</a> · <a href="${esc(app)}/privacy" style="color:#8a8079">${privacy}</a><br>QuickSanta · Disrupting Labs · México</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = [
+    e.title,
+    "",
+    ...e.blocks.map(blockText).flatMap((t) => [t, ""]),
+    ...(e.cta ? [`${e.cta.label}: ${e.cta.href}`, ""] : []),
+    "—",
+    e.reason,
+    `${help} alex@disruptinglabs.com`,
+    "QuickSanta · Disrupting Labs · México",
+  ].join("\n");
+  return { subject: e.subject, html, text };
 }
 
-export function tplAssignment(lang: Lang, o: { eventName: string; link: string; revealOn?: string | null }) {
+// ── Templates (EN/ES). Each returns { subject, html, text }. ──
+
+export function tplOtp(lang: Lang, code: string): RenderedEmail {
   const es = lang === "es";
-  const title = es ? `¡El sorteo de "${o.eventName}" está listo!` : `The draw for "${o.eventName}" is ready!`;
-  const p = o.revealOn
-    ? es
-      ? `Ya tienes asignación, pero se revela a todos juntos el ${esc(o.revealOn)}. ¡Paciencia! 🎁`
-      : `Your match is set, and everyone finds out together on ${esc(o.revealOn)}. Stay tuned! 🎁`
-    : es
-      ? "Entra para descubrir a quién le regalas. Es secreto 🤫"
-      : "Sign in to discover who you're gifting. Keep it secret 🤫";
-  const html = emailLayout(lang, title, `<p style="margin:0;line-height:1.6">${p}</p>`, { href: o.link, label: o.revealOn ? (es ? "Ver el intercambio" : "View the exchange") : es ? "Ver mi asignación" : "Reveal my match" });
-  return { subject: title, html, text: `${title}\n${p}\n${o.link}` };
+  return renderEmail(lang, {
+    subject: es ? `${code} es tu código de QuickSanta` : `${code} is your QuickSanta code`,
+    preheader: es ? "Úsalo para entrar. Vence en 10 minutos." : "Use it to sign in. It expires in 10 minutes.",
+    title: es ? "Tu código de acceso" : "Your sign-in code",
+    blocks: [
+      { p: es ? "Escribe este código en QuickSanta para entrar:" : "Enter this code in QuickSanta to sign in:" },
+      { code },
+      { note: es ? "Vence en 10 minutos. Si no lo pediste, ignora este correo: nadie puede entrar sin el código." : "It expires in 10 minutes. If you didn't ask for it, ignore this email: nobody can sign in without the code." },
+    ],
+    reason: es ? "Recibiste este correo porque alguien (ojalá tú) pidió entrar con esta dirección." : "You got this because someone (hopefully you) asked to sign in with this address.",
+  });
 }
 
-export function tplLead(o: { name: string; email: string; company: string | null; teamSize: string; message: string | null; link: string }) {
-  // Internal notification (platform owners): English, plain.
-  const title = `New Enterprise inquiry: ${o.company || o.name}`;
-  const rows = [
-    `<strong>${esc(o.name)}</strong> &lt;${esc(o.email)}&gt;`,
-    o.company ? `Company: ${esc(o.company)}` : "",
-    `Team size: ${esc(o.teamSize)}`,
-    o.message ? `<br>${esc(o.message).replace(/\n/g, "<br>")}` : "",
-  ].filter(Boolean);
-  const html = emailLayout("en", title, `<p style="margin:0;line-height:1.7">${rows.join("<br>")}</p>`, { href: o.link, label: "Open in Command Center" });
-  return { subject: title, html, text: `${title}\n${o.name} <${o.email}>\n${o.company ?? ""}\n${o.teamSize}\n${o.message ?? ""}\n${o.link}` };
-}
+type InviteData = { organizer: string; eventName: string; typeName: string; date: string | null; budget: string | null; themeRules?: string | null; people?: number | null; link: string };
 
-export function tplLinkJoined(lang: Lang, o: { who: string; email?: string; eventName: string; link: string }) {
+function inviteDetails(lang: Lang, o: InviteData): EmailBlock {
   const es = lang === "es";
-  // The name is chosen by the joiner: callers pass it through cleanSubjectText; the email shows who it really is.
-  const title = es ? `Nueva persona en "${o.eventName}": ${o.who}` : `New person in "${o.eventName}": ${o.who}`;
-  const p =
-    (o.email ? `${esc(o.email)} — ` : "") +
-    (es
-      ? "Se unió con el enlace de invitación. Si no lo conoces, puedes quitarlo antes del sorteo."
-      : "They joined with the invite link. If you don't know them, you can remove them before the draw.");
-  const html = emailLayout(lang, title, `<p style="margin:0;line-height:1.6">${p}</p>`, { href: o.link, label: es ? "Ver participantes" : "View participants" });
-  return { subject: title, html, text: `${title}\n${p}\n${o.link}` };
+  return {
+    details: [
+      [es ? "Intercambio" : "Exchange", o.typeName],
+      [es ? "Fecha" : "Date", fmtEmailDate(lang, o.date)],
+      [es ? "Presupuesto" : "Budget", o.budget],
+      [es ? "Personas" : "People", o.people ? String(o.people) : null],
+    ],
+  };
 }
+
+export function tplInvite(lang: Lang, o: InviteData): RenderedEmail {
+  const es = lang === "es";
+  return renderEmail(lang, {
+    subject: es ? `${o.organizer} te invitó a “${o.eventName}”` : `${o.organizer} invited you to “${o.eventName}”`,
+    preheader: es ? `Únete al intercambio${o.date ? ` del ${fmtEmailDate(lang, o.date)}` : ""}. Solo necesitas tu correo.` : `Join the exchange${o.date ? ` on ${fmtEmailDate(lang, o.date)}` : ""}. All you need is your email.`,
+    kicker: es ? "Invitación" : "You're invited",
+    title: o.eventName,
+    blocks: [
+      { p: es ? `${o.organizer} te invitó a participar.` : `${o.organizer} invited you to take part.` },
+      inviteDetails(lang, o),
+      ...(o.themeRules ? [{ quote: o.themeRules }] : []),
+      { note: es ? "Entras con un código que te enviamos por correo: sin contraseñas ni apps. Puedes responder a este correo para escribirle a quien organiza." : "You'll sign in with a code we email you: no passwords or apps. Reply to this email to reach the organizer." },
+    ],
+    cta: { href: o.link, label: es ? "Unirme al intercambio" : "Join the exchange" },
+    reason: es ? `${o.organizer} te agregó a este intercambio en QuickSanta.` : `${o.organizer} added you to this exchange on QuickSanta.`,
+  });
+}
+
+export function tplReminder(lang: Lang, o: InviteData): RenderedEmail {
+  const es = lang === "es";
+  return renderEmail(lang, {
+    subject: es ? `Recordatorio: únete a “${o.eventName}”` : `Reminder: join “${o.eventName}”`,
+    preheader: es ? `${o.organizer} sigue esperándote. Toma un minuto.` : `${o.organizer} is still saving you a spot. It takes a minute.`,
+    kicker: es ? "Recordatorio" : "Friendly reminder",
+    title: es ? "Todavía hay un lugar para ti" : "There's still a spot for you",
+    blocks: [{ p: es ? `${o.organizer} te invitó a “${o.eventName}” y aún no te has unido.` : `${o.organizer} invited you to “${o.eventName}” and you haven't joined yet.` }, inviteDetails(lang, o)],
+    cta: { href: o.link, label: es ? "Unirme ahora" : "Join now" },
+    reason: es ? `${o.organizer} te agregó a este intercambio en QuickSanta.` : `${o.organizer} added you to this exchange on QuickSanta.`,
+  });
+}
+
+export function tplAssignment(lang: Lang, o: { eventName: string; link: string; revealOn?: string | null; wishlists?: boolean }): RenderedEmail {
+  const es = lang === "es";
+  const on = fmtEmailDate(lang, o.revealOn);
+  return renderEmail(lang, {
+    subject: es ? `¡El sorteo de “${o.eventName}” está listo!` : `The draw for “${o.eventName}” is ready!`,
+    preheader: on ? (es ? `Se revela a todos juntos el ${on}.` : `Everyone finds out together on ${on}.`) : es ? "Entra para ver a quién le regalas. Es secreto." : "Sign in to see who you're gifting. Keep it secret.",
+    kicker: es ? "Sorteo listo" : "Draw complete",
+    title: es ? "Ya tienes a quién regalarle" : "You've got your match",
+    blocks: [
+      {
+        p: on
+          ? es
+            ? `Tu asignación en “${o.eventName}” ya está lista, pero todos la descubren juntos el ${on}. Te avisaremos ese día.`
+            : `Your match in “${o.eventName}” is set, but everyone finds out together on ${on}. We'll email you that day.`
+          : es
+            ? `Tu asignación en “${o.eventName}” está lista. Solo tú puedes verla, ni siquiera quien organiza.`
+            : `Your match in “${o.eventName}” is ready. Only you can see it, not even the organizer.`,
+      },
+      ...(o.wishlists ? [{ p: es ? "Este intercambio usa listas de deseos: agrega la tuya para darle ideas a quien te regala." : "This exchange uses wishlists: add yours to give your gifter some ideas." }] : []),
+      { note: es ? "Shhh… no se lo digas a nadie 🤫" : "Shhh… don't tell anyone 🤫" },
+    ],
+    cta: { href: o.link, label: on ? (es ? "Ver el intercambio" : "View the exchange") : es ? "Ver mi asignación" : "Reveal my match" },
+    reason: es ? `Participas en “${o.eventName}” en QuickSanta.` : `You're part of “${o.eventName}” on QuickSanta.`,
+  });
+}
+
+export function tplRevealDay(lang: Lang, o: { eventName: string; link: string }): RenderedEmail {
+  const es = lang === "es";
+  return renderEmail(lang, {
+    subject: es ? `🎁 ¡Hoy es el día! Descubre a quién le regalas en “${o.eventName}”` : `🎁 It's reveal day! See who you're gifting in “${o.eventName}”`,
+    preheader: es ? "Las asignaciones ya se pueden ver." : "Matches are unlocked for everyone.",
+    kicker: es ? "Día de la revelación" : "Reveal day",
+    title: es ? "Llegó el gran momento" : "The big moment is here",
+    blocks: [{ p: es ? `Las asignaciones de “${o.eventName}” ya están abiertas para todos. Entra y voltea tu tarjeta.` : `Matches for “${o.eventName}” are now unlocked for everyone. Sign in and flip your card.` }],
+    cta: { href: o.link, label: es ? "Ver mi asignación" : "Reveal my match" },
+    reason: es ? `Participas en “${o.eventName}” en QuickSanta.` : `You're part of “${o.eventName}” on QuickSanta.`,
+  });
+}
+
+export function tplLinkJoined(lang: Lang, o: { who: string; email?: string; eventName: string; link: string; people?: number | null }): RenderedEmail {
+  const es = lang === "es";
+  // The name is chosen by the joiner (callers pass it through cleanSubjectText); the email shows who it really is.
+  return renderEmail(lang, {
+    subject: es ? `Nueva persona en “${o.eventName}”: ${o.who}` : `New person in “${o.eventName}”: ${o.who}`,
+    preheader: es ? "Se unió con tu enlace de invitación." : "They joined with your invite link.",
+    kicker: es ? "Enlace de invitación" : "Invite link",
+    title: es ? `${o.who} se unió` : `${o.who} joined`,
+    blocks: [
+      { details: [[es ? "Nombre" : "Name", o.who], [es ? "Correo" : "Email", o.email ?? null], [es ? "Intercambio" : "Exchange", o.eventName], [es ? "Personas ahora" : "People now", o.people ? String(o.people) : null]] },
+      { note: es ? "¿No lo conoces? Puedes quitarlo desde la lista de participantes antes del sorteo." : "Don't know them? You can remove them from the participant list before the draw." },
+    ],
+    cta: { href: o.link, label: es ? "Ver participantes" : "View participants" },
+    reason: es ? `Organizas “${o.eventName}” en QuickSanta.` : `You organize “${o.eventName}” on QuickSanta.`,
+  });
+}
+
+export function tplLead(o: { name: string; email: string; company: string | null; teamSize: string; message: string | null; link: string }): RenderedEmail {
+  // Internal notification to platform owners: English.
+  return renderEmail("en", {
+    subject: `New Enterprise inquiry: ${o.company || o.name}`,
+    preheader: `${o.name} · ${o.teamSize}`,
+    kicker: "Command Center · Leads",
+    title: o.company || o.name,
+    blocks: [{ details: [["Name", o.name], ["Email", o.email], ["Company", o.company], ["Team size", o.teamSize]] }, ...(o.message ? [{ quote: o.message }] : [])],
+    cta: { href: o.link, label: "Open in Command Center" },
+    reason: "You're a QuickSanta platform owner.",
+  });
+}
+
+// ── Billing (to the workspace's organizers) ──
+type BillingData = { workspace: string; link: string };
+const billingReason = (lang: Lang, ws: string) => (lang === "es" ? `Organizas el espacio “${ws}” en QuickSanta.` : `You're an organizer of the “${ws}” workspace on QuickSanta.`);
+
+export function tplProWelcome(lang: Lang, o: BillingData & { maxPeople: number; renewsOn?: string | null; price: string }): RenderedEmail {
+  const es = lang === "es";
+  return renderEmail(lang, {
+    subject: es ? `Bienvenido a Pro, ${o.workspace} ✨` : `Welcome to Pro, ${o.workspace} ✨`,
+    preheader: es ? `Hasta ${o.maxPeople} personas por intercambio y todos los servicios.` : `Up to ${o.maxPeople} people per exchange and every service.`,
+    kicker: "QuickSanta Pro",
+    title: es ? "Tu espacio ya es Pro" : "Your workspace is now Pro",
+    blocks: [
+      { p: es ? "Gracias por apoyar QuickSanta. Esto es lo que se desbloqueó:" : "Thanks for supporting QuickSanta. Here's what you unlocked:" },
+      {
+        details: [
+          [es ? "Personas" : "People", es ? `Hasta ${o.maxPeople} por intercambio` : `Up to ${o.maxPeople} per exchange`],
+          [es ? "Servicios" : "Services", es ? "Todos, incluido Crea el tuyo" : "All of them, including Create your own"],
+          [es ? "Plantillas" : "Templates", es ? "Guarda y reutiliza tus diseños" : "Save and reuse your designs"],
+          [es ? "Precio" : "Price", o.price],
+          [es ? "Se renueva" : "Renews", fmtEmailDate(lang, o.renewsOn)],
+        ],
+      },
+      { note: es ? "Puedes cambiar tu tarjeta o cancelar cuando quieras desde Plan y facturación." : "Change your card or cancel anytime from Plan & billing." },
+    ],
+    cta: { href: o.link, label: es ? "Ir a mi espacio" : "Go to my workspace" },
+    reason: billingReason(lang, o.workspace),
+  });
+}
+
+export function tplPaymentFailed(lang: Lang, o: BillingData & { graceEnds: string | null; graceDays: number }): RenderedEmail {
+  const es = lang === "es";
+  const until = fmtEmailDate(lang, o.graceEnds);
+  return renderEmail(lang, {
+    subject: es ? `Acción necesaria: no pudimos cobrar Pro de ${o.workspace}` : `Action needed: we couldn't charge Pro for ${o.workspace}`,
+    preheader: until ? (es ? `Pro sigue activo hasta el ${until}. Actualiza tu tarjeta.` : `Pro stays on until ${until}. Update your card.`) : es ? "Actualiza tu tarjeta para mantener Pro." : "Update your card to keep Pro.",
+    kicker: es ? "Pago fallido" : "Payment failed",
+    title: es ? "Tu renovación de Pro no se pudo cobrar" : "Your Pro renewal didn't go through",
+    blocks: [
+      {
+        p: es
+          ? `El banco rechazó el cobro. No pasa nada todavía: Pro sigue activo ${until ? `hasta el ${until}` : `por ${o.graceDays} días`} para que actualices tu tarjeta.`
+          : `Your bank declined the charge. Nothing changes yet: Pro stays on ${until ? `until ${until}` : `for ${o.graceDays} days`} while you update your card.`,
+      },
+      { p: es ? "Si no se actualiza, el espacio vuelve a Gratis: tus intercambios siguen funcionando, pero no podrán crecer más allá del límite gratuito." : "If it isn't updated, the workspace returns to Free: your exchanges keep working, but they can't grow beyond the Free limit." },
+    ],
+    cta: { href: o.link, label: es ? "Actualizar tarjeta" : "Update card" },
+    reason: billingReason(lang, o.workspace),
+  });
+}
+
+export function tplProEnded(lang: Lang, o: BillingData & { freeMax: number }): RenderedEmail {
+  const es = lang === "es";
+  return renderEmail(lang, {
+    subject: es ? `${o.workspace} volvió al plan Gratis` : `${o.workspace} is back on the Free plan`,
+    preheader: es ? "Tus intercambios siguen funcionando. Reactiva Pro cuando quieras." : "Your exchanges keep working. Reactivate Pro anytime.",
+    kicker: es ? "Cambio de plan" : "Plan change",
+    title: es ? "Tu espacio volvió a Gratis" : "Your workspace is back on Free",
+    blocks: [
+      { p: es ? "Pro terminó. Nada se borró: tus intercambios, participantes y plantillas siguen ahí." : "Pro has ended. Nothing was deleted: your exchanges, participants and templates are all still there." },
+      { p: es ? `Mientras estés en Gratis, cada intercambio admite hasta ${o.freeMax} personas y solo Amigo secreto y Elefante blanco.` : `While on Free, each exchange holds up to ${o.freeMax} people, with Secret Santa and White Elephant.` },
+    ],
+    cta: { href: o.link, label: es ? "Reactivar Pro" : "Reactivate Pro" },
+    reason: billingReason(lang, o.workspace),
+  });
+}
+
+export function tplCancelScheduled(lang: Lang, o: BillingData & { endsOn: string | null }): RenderedEmail {
+  const es = lang === "es";
+  const on = fmtEmailDate(lang, o.endsOn);
+  return renderEmail(lang, {
+    subject: es ? `Cancelaste Pro de ${o.workspace}` : `You cancelled Pro for ${o.workspace}`,
+    preheader: on ? (es ? `Pro sigue activo hasta el ${on}.` : `Pro stays on until ${on}.`) : es ? "Pro sigue activo hasta el fin del periodo." : "Pro stays on until the end of the period.",
+    kicker: es ? "Cancelación programada" : "Cancellation scheduled",
+    title: es ? "Lamentamos verte partir" : "Sorry to see you go",
+    blocks: [
+      { p: es ? `Tu suscripción no se renovará. Pro sigue activo ${on ? `hasta el ${on}` : "hasta el fin del periodo pagado"} y no se te cobrará de nuevo.` : `Your subscription won't renew. Pro stays on ${on ? `until ${on}` : "until the end of the paid period"} and you won't be charged again.` },
+      { p: es ? "¿Cambiaste de opinión? Puedes reactivarla antes de esa fecha con un clic." : "Changed your mind? You can resume before then in one click." },
+    ],
+    cta: { href: o.link, label: es ? "Reactivar suscripción" : "Resume subscription" },
+    reason: billingReason(lang, o.workspace),
+  });
+}
+
+export function tplResumed(lang: Lang, o: BillingData & { renewsOn: string | null }): RenderedEmail {
+  const es = lang === "es";
+  const on = fmtEmailDate(lang, o.renewsOn);
+  return renderEmail(lang, {
+    subject: es ? `Pro sigue activo para ${o.workspace} 🎉` : `Pro is back on for ${o.workspace} 🎉`,
+    preheader: es ? "Tu suscripción se renovará normalmente." : "Your subscription will renew as usual.",
+    kicker: "QuickSanta Pro",
+    title: es ? "¡Qué bueno que te quedas!" : "Glad you're staying!",
+    blocks: [{ p: es ? `Reactivaste tu suscripción. ${on ? `Se renovará el ${on}.` : ""}` : `You resumed your subscription. ${on ? `It renews on ${on}.` : ""}` }],
+    cta: { href: o.link, label: es ? "Ver mi plan" : "View my plan" },
+    reason: billingReason(lang, o.workspace),
+  });
+}
+
+/** Sample data for every template (Command Center → Email gallery). Keys = email_log.template. */
+export const EMAIL_PREVIEWS: Record<string, (lang: Lang) => RenderedEmail> = {
+  otp: (l) => tplOtp(l, "482913"),
+  invite: (l) => tplInvite(l, { organizer: "Olga Ruiz", eventName: l === "es" ? "Intercambio de la oficina" : "Office Secret Santa", typeName: l === "es" ? "Amigo secreto" : "Secret Santa", date: "2026-12-18", budget: "25 USD", themeRules: l === "es" ? "Algo hecho a mano" : "Something handmade", people: 14, link: `${appUrl()}/join/sample-token` }),
+  reminder: (l) => tplReminder(l, { organizer: "Olga Ruiz", eventName: l === "es" ? "Intercambio de la oficina" : "Office Secret Santa", typeName: l === "es" ? "Amigo secreto" : "Secret Santa", date: "2026-12-18", budget: "25 USD", people: 14, link: `${appUrl()}/join/sample-token` }),
+  assignment: (l) => tplAssignment(l, { eventName: l === "es" ? "Navidad Gómez" : "Gómez Family Christmas", link: `${appUrl()}/app/my/SAMPLE`, wishlists: true }),
+  assignment_together: (l) => tplAssignment(l, { eventName: l === "es" ? "Navidad Gómez" : "Gómez Family Christmas", link: `${appUrl()}/app/my/SAMPLE`, revealOn: "2026-12-24" }),
+  reveal_day: (l) => tplRevealDay(l, { eventName: l === "es" ? "Navidad Gómez" : "Gómez Family Christmas", link: `${appUrl()}/app/my/SAMPLE` }),
+  link_joined: (l) => tplLinkJoined(l, { who: "Sam Rivera", email: "sam@example.com", eventName: l === "es" ? "Intercambio de la oficina" : "Office Secret Santa", people: 15, link: `${appUrl()}/app/events/1` }),
+  pro_welcome: (l) => tplProWelcome(l, { workspace: "Acme", maxPeople: 100, renewsOn: "2026-12-27", price: l === "es" ? "US$8.90 al mes" : "US$8.90 / month", link: `${appUrl()}/app` }),
+  payment_failed: (l) => tplPaymentFailed(l, { workspace: "Acme", graceEnds: "2026-11-30 09:00:00", graceDays: 3, link: `${appUrl()}/app/billing` }),
+  pro_ended: (l) => tplProEnded(l, { workspace: "Acme", freeMax: 20, link: `${appUrl()}/app/billing` }),
+  cancel_scheduled: (l) => tplCancelScheduled(l, { workspace: "Acme", endsOn: "2026-12-27", link: `${appUrl()}/app/billing` }),
+  resumed: (l) => tplResumed(l, { workspace: "Acme", renewsOn: "2026-12-27", link: `${appUrl()}/app/billing` }),
+  contact: () => tplLead({ name: "Ana Pérez", email: "ana@acme.com", company: "Acme", teamSize: "100_500", message: "3 offices, 400 people, one draw per office.", link: `${appUrl()}/admin/leads` }),
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 // 4. Draw engine (pure)
@@ -1025,7 +1307,7 @@ const toSqlDate = (unix: number | null) => (unix ? new Date(unix * 1000).toISOSt
 /** Opens exchanges that were waiting for Pro and sends their queued invitations (idempotent). */
 async function openPendingExchanges(req: Request | null, tenantId: number, lang: Lang) {
   const pending = await db.query(
-    `SELECT e.id, e.name, e.exchange_date, e.budget_min, e.budget_max, e.currency, e.invites_pending, e.custom_name, e.theme_rules, et.name_en, et.name_es, u.full_name AS organizer
+    `SELECT e.id, e.name, e.exchange_date, e.budget_min, e.budget_max, e.currency, e.invites_pending, e.custom_name, e.theme_rules, et.name_en, et.name_es, u.full_name AS organizer, u.email AS organizer_email
        FROM events e JOIN event_types et ON et.id = e.event_type_id LEFT JOIN users u ON u.id = e.created_by
       WHERE e.tenant_id = ? AND (e.status = 'pending_payment' OR (e.status = 'open' AND e.invites_pending = 1))`,
     [tenantId],
@@ -1042,6 +1324,7 @@ async function openPendingExchanges(req: Request | null, tenantId: number, lang:
         participantId: Number(p.id),
         email: p.email,
         organizer: ev.organizer || "QuickSanta",
+        replyTo: ev.organizer_email ?? null,
         event: { name: ev.name, exchange_date: ev.exchange_date, budget_min: toNum(ev.budget_min), budget_max: toNum(ev.budget_max), currency: ev.currency },
         typeName: serviceLabel(ev, lang),
         themeRules: ev.theme_rules ?? null,
@@ -1055,7 +1338,7 @@ async function openPendingExchanges(req: Request | null, tenantId: number, lang:
 
 /** Mirror a Stripe subscription onto its workspace (single source of truth = Stripe). Idempotent. */
 async function syncTenantSubscription(req: Request | null, sub: SubscriptionInfo): Promise<{ tenantId: number; changed: boolean } | null> {
-  const rows = await db.query("SELECT id, plan, locale, stripe_subscription_id, subscription_status, past_due_since FROM tenants WHERE stripe_customer_id = ? LIMIT 1", [sub.customer]);
+  const rows = await db.query("SELECT id, name, plan, locale, stripe_subscription_id, subscription_status, past_due_since, cancel_at_period_end FROM tenants WHERE stripe_customer_id = ? LIMIT 1", [sub.customer]);
   const t = rows[0];
   if (!t) return null;
   const tenantId = Number(t.id);
@@ -1063,6 +1346,11 @@ async function syncTenantSubscription(req: Request | null, sub: SubscriptionInfo
   if (t.stripe_subscription_id && t.stripe_subscription_id !== sub.id && !["active", "trialing", "past_due"].includes(sub.status)) return { tenantId, changed: false };
   const plan = t.plan === "enterprise" ? "enterprise" : planFromSubscriptionStatus(sub.status);
   const pastDueSince = sub.status === "past_due" ? t.past_due_since ?? new Date().toISOString().slice(0, 19).replace("T", " ") : null;
+  // Compare-and-set first: only the caller that actually flips the status / cancel flag sends the matching email
+  // (the webhook and /billing/sync often process the same change within milliseconds).
+  const statusFlipped = (await db.exec("UPDATE tenants SET subscription_status = ? WHERE id = ? AND NOT (subscription_status <=> ?)", [sub.status, tenantId, sub.status])).affectedRows === 1;
+  const cancelFlag = sub.cancel_at_period_end ? 1 : 0;
+  const cancelFlipped = (await db.exec("UPDATE tenants SET cancel_at_period_end = ? WHERE id = ? AND cancel_at_period_end <> ?", [cancelFlag, tenantId, cancelFlag])).affectedRows === 1;
   await db.exec(
     `UPDATE tenants SET stripe_subscription_id = ?, subscription_status = ?, current_period_end = ?, past_due_since = ?, cancel_at_period_end = ?, plan = ?,
             card_brand = COALESCE(?, card_brand), card_last4 = COALESCE(?, card_last4), card_exp = COALESCE(?, card_exp)
@@ -1073,7 +1361,110 @@ async function syncTenantSubscription(req: Request | null, sub: SubscriptionInfo
   const effective = effectiveTenantPlan({ plan, subscription_status: sub.status, past_due_since: pastDueSince }, grace);
   // Waiting exchanges open only while Pro actually applies (never for an expired grace period).
   if (effective !== "free") await openPendingExchanges(req, tenantId, t.locale === "es" ? "es" : "en");
+  await billingNotices(tenantId, String(t.name ?? ""), {
+    oldStatus: t.subscription_status ?? null,
+    newStatus: sub.status,
+    statusFlipped,
+    cancelFlipped,
+    cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+    periodEnd: toSqlDate(sub.current_period_end),
+    // Ending after a failed renewal: keep the original past_due_since so the grace-ended cron and this path share one ref.
+    pastDueSince: pastDueSince ?? t.past_due_since ?? null,
+    enterprise: t.plan === "enterprise",
+  }).catch((e) => console.warn("[billing-notices]", (e as Error).message));
   return { tenantId, changed: t.subscription_status !== sub.status };
+}
+
+// ── Billing emails (to the workspace's active organizers, each in their own language) ──
+const LIVE_STATUSES = ["active", "trialing"];
+const ENDED_STATUSES = ["canceled", "unpaid", "incomplete_expired"];
+
+async function emailOrganizers(tenantId: number, template: string, build: (lang: Lang) => RenderedEmail) {
+  const orgs = await db.query(
+    "SELECT u.email, u.locale FROM tenant_members m JOIN users u ON u.id = m.user_id WHERE m.tenant_id = ? AND m.role = 'organizer' AND m.status = 'active' AND u.status = 'active'",
+    [tenantId],
+  );
+  for (const o of orgs) await sendEmail({ to: String(o.email), ...build(o.locale === "es" ? "es" : "en"), template, tenantId });
+  return orgs.length;
+}
+
+/** First caller wins: INSERT IGNORE on (kind, ref). */
+async function claimNotice(kind: string, ref: string, tenantId: number | null): Promise<boolean> {
+  return (await db.exec("INSERT IGNORE INTO email_notices (tenant_id, kind, ref) VALUES (?, ?, ?)", [tenantId, kind, ref.slice(0, 160)])).affectedRows === 1;
+}
+
+const proPriceLabel = (lang: Lang, p: { pro_price_cents: number; pro_currency: string }) => {
+  const amount = `${p.pro_currency.toUpperCase() === "USD" ? "US$" : `${p.pro_currency.toUpperCase()} `}${(p.pro_price_cents / 100).toFixed(2)}`;
+  return lang === "es" ? `${amount} al mes` : `${amount} / month`;
+};
+
+export async function billingNotices(
+  tenantId: number,
+  workspace: string,
+  c: { oldStatus: string | null; newStatus: string; statusFlipped: boolean; cancelFlipped: boolean; cancelAtPeriodEnd: boolean; periodEnd: string | null; pastDueSince: string | null; enterprise: boolean },
+) {
+  const pricing = await pricingInfo();
+  const billing = `${appUrl()}/app/billing`;
+  const wasLive = c.oldStatus != null && [...LIVE_STATUSES, "past_due"].includes(c.oldStatus);
+  if (c.statusFlipped && LIVE_STATUSES.includes(c.newStatus) && !wasLive) {
+    await emailOrganizers(tenantId, "pro_welcome", (l) =>
+      tplProWelcome(l, { workspace, maxPeople: pricing.pro_max_participants, renewsOn: c.periodEnd, price: proPriceLabel(l, pricing), link: `${appUrl()}/app` }),
+    );
+  }
+  if (c.statusFlipped && c.newStatus === "past_due") {
+    const since = c.pastDueSince ? Date.parse(`${c.pastDueSince.replace(" ", "T")}Z`) : Date.now();
+    const graceEnds = new Date(since + pricing.grace_days * 86_400_000).toISOString().slice(0, 19).replace("T", " ");
+    await emailOrganizers(tenantId, "payment_failed", (l) => tplPaymentFailed(l, { workspace, graceEnds, graceDays: pricing.grace_days, link: billing }));
+  }
+  if (c.statusFlipped && ENDED_STATUSES.includes(c.newStatus) && wasLive && !c.enterprise) {
+    // Shared ref with the grace-ended cron: whichever notices first sends it, once.
+    if (await claimNotice("pro_ended", `${tenantId}:${c.pastDueSince ?? c.periodEnd ?? "end"}`, tenantId)) {
+      await emailOrganizers(tenantId, "pro_ended", (l) => tplProEnded(l, { workspace, freeMax: pricing.free_max_participants, link: billing }));
+    }
+  }
+  if (c.cancelFlipped && LIVE_STATUSES.includes(c.newStatus)) {
+    if (c.cancelAtPeriodEnd) await emailOrganizers(tenantId, "cancel_scheduled", (l) => tplCancelScheduled(l, { workspace, endsOn: c.periodEnd, link: billing }));
+    else await emailOrganizers(tenantId, "resumed", (l) => tplResumed(l, { workspace, renewsOn: c.periodEnd, link: billing }));
+  }
+}
+
+/** "Reveal together" exchanges: on the exchange date (UTC; yesterday too, in case a cron run was missed), email every joined person once. */
+export async function sendRevealDayEmails(): Promise<number> {
+  const events = await db.query(
+    `SELECT e.id, e.tenant_id, e.public_id, e.name, t.locale FROM events e JOIN tenants t ON t.id = e.tenant_id
+      WHERE e.reveal_mode = 'together' AND e.status = 'drawn' AND t.status = 'active'
+        AND e.exchange_date BETWEEN UTC_DATE() - INTERVAL 1 DAY AND UTC_DATE()`,
+  );
+  let sent = 0;
+  for (const ev of events) {
+    if (!(await claimNotice("reveal_day", String(ev.id), Number(ev.tenant_id)))) continue;
+    const people = await db.query(
+      "SELECT p.email, u.locale FROM participants p LEFT JOIN users u ON u.id = p.user_id WHERE p.event_id = ? AND p.tenant_id = ? AND p.status = 'joined'",
+      [ev.id, ev.tenant_id],
+    );
+    const link = `${appUrl()}/app/my/${ev.public_id}`;
+    await inBatches(people, 10, async (p) => {
+      const lang: Lang = (p.locale ?? ev.locale) === "es" ? "es" : "en";
+      if ((await sendEmail({ to: String(p.email), ...tplRevealDay(lang, { eventName: ev.name, link }), template: "reveal_day", tenantId: Number(ev.tenant_id) })).ok) sent++;
+    });
+  }
+  return sent;
+}
+
+/** A failed renewal whose grace period ran out: the workspace is effectively Free now (no Stripe event marks that moment). */
+export async function sendGraceEndedEmails(): Promise<number> {
+  const pricing = await pricingInfo();
+  const rows = await db.query(
+    `SELECT id, name, past_due_since FROM tenants
+      WHERE subscription_status = 'past_due' AND plan <> 'enterprise' AND status = 'active' AND past_due_since IS NOT NULL
+        AND past_due_since < UTC_TIMESTAMP() - INTERVAL ${Number(pricing.grace_days) || 0} DAY`,
+  );
+  let sent = 0;
+  for (const t of rows) {
+    if (!(await claimNotice("pro_ended", `${t.id}:${t.past_due_since}`, Number(t.id)))) continue;
+    sent += await emailOrganizers(Number(t.id), "pro_ended", (l) => tplProEnded(l, { workspace: String(t.name), freeMax: pricing.free_max_participants, link: `${appUrl()}/app/billing` }));
+  }
+  return sent;
 }
 
 async function recordInvoice(inv: InvoiceInfo, status: "succeeded" | "failed") {
@@ -1181,20 +1572,37 @@ function budgetLabel(min: number | null, max: number | null, currency: string): 
 async function sendInvite(
   req: Request,
   dbx: Db,
-  o: { tenantId: number; participantId: number; email: string; organizer: string; event: { name: string; exchange_date: string | null; budget_min: number | null; budget_max: number | null; currency: string; theme_rules?: string | null }; typeName: string; themeRules?: string | null; lang?: Lang },
+  o: {
+    tenantId: number;
+    participantId: number;
+    email: string;
+    organizer: string;
+    /** Organizer's email: Reply-To, so invitees can just hit Reply. */
+    replyTo?: string | null;
+    people?: number | null;
+    /** Friendlier "still a spot for you" copy (organizer's Remind button). */
+    reminder?: boolean;
+    event: { name: string; exchange_date: string | null; budget_min: number | null; budget_max: number | null; currency: string; theme_rules?: string | null };
+    typeName: string;
+    themeRules?: string | null;
+    lang?: Lang;
+  },
 ) {
   const token = crypto.randomBytes(24).toString("base64url");
   await dbx.exec("UPDATE participants SET invite_token_hash = ?, invited_at = UTC_TIMESTAMP() WHERE id = ? AND tenant_id = ?", [sha256(token), o.participantId, o.tenantId]);
-  const tpl = tplInvite(o.lang ?? reqLang(req), {
-    organizer: o.organizer,
-    eventName: o.event.name,
+  const data = {
+    organizer: cleanSubjectText(o.organizer, 60) || "QuickSanta",
+    eventName: cleanSubjectText(o.event.name, 80),
     typeName: o.typeName,
     date: o.event.exchange_date,
     budget: budgetLabel(o.event.budget_min, o.event.budget_max, o.event.currency),
     themeRules: o.themeRules ?? o.event.theme_rules ?? null,
+    people: o.people ?? null,
     link: `${appUrl()}/join/${token}`,
-  });
-  const r = await sendEmail({ to: o.email, ...tpl, template: "invite", tenantId: o.tenantId });
+  };
+  const lang = o.lang ?? reqLang(req);
+  const tpl = o.reminder ? tplReminder(lang, data) : tplInvite(lang, data);
+  const r = await sendEmail({ to: o.email, ...tpl, template: o.reminder ? "reminder" : "invite", tenantId: o.tenantId, replyTo: o.replyTo ?? null });
   // Not delivered: drop the token again so queued sends retry this person.
   if (!r.ok) await dbx.exec("UPDATE participants SET invite_token_hash = NULL WHERE id = ? AND tenant_id = ? AND invite_token_hash = ?", [o.participantId, o.tenantId, sha256(token)]).catch(() => undefined);
   return r.ok;
@@ -1598,6 +2006,8 @@ function registerWizardRoutes(app: express.Express) {
             participantId: result.ids[i],
             email: people[i].email,
             organizer: input.organizerName,
+            replyTo: u.email,
+            people: people.length,
             event: { name: input.name, exchange_date: input.exchangeDate ?? null, budget_min: input.budgetMin ?? null, budget_max: input.budgetMax ?? null, currency: input.currency },
             typeName: custom?.name ?? (reqLang(req) === "es" ? type.name_es : type.name_en),
             themeRules: custom?.themeRules || null,
@@ -1909,7 +2319,7 @@ function registerJoinRoutes(app: express.Express) {
         // Tell the organizer (not when they join their own exchange).
         if (r.organizer_email && r.organizer_email !== u.email) {
           const lang: Lang = r.organizer_locale === "es" ? "es" : "en";
-          const tpl = tplLinkJoined(lang, { who: cleanSubjectText(name, 40), email: u.email, eventName: cleanSubjectText(r.name, 60), link: `${appUrl()}/app/events/${eventId}` });
+          const tpl = tplLinkJoined(lang, { who: cleanSubjectText(name, 40), email: u.email, eventName: cleanSubjectText(r.name, 60), people: Number(r.people) + 1, link: `${appUrl()}/app/events/${eventId}` });
           await sendEmail({ to: r.organizer_email, ...tpl, template: "link_joined", tenantId }).catch(() => undefined);
         }
       }
@@ -2076,6 +2486,43 @@ function registerTenantRoutes(app: express.Express) {
     }),
   );
 
+  // ── Remind everyone who hasn't joined yet (once per exchange per day). ──
+  app.post(
+    "/api/app/events/:id/remind",
+    writeLimiter,
+    requireTenant("participants.manage"),
+    route(async (req, res) => {
+      const { tenant_id } = tenantCtx(res);
+      const u = authed(res);
+      const eventId = parseId(req.params.id);
+      const { event, row } = await loadTenantEvent(tenant_id, eventId);
+      if (event.status === "pending_payment") throw new HttpError(409, "errors.paymentRequired");
+      if (event.status !== "open") throw new HttpError(409, event.status === "drawn" ? "errors.alreadyDrawn" : "errors.eventClosed");
+      const pending = await db.query("SELECT id, email FROM participants WHERE event_id = ? AND tenant_id = ? AND status = 'invited'", [eventId, tenant_id]);
+      if (!pending.length) throw new HttpError(400, "errors.nobodyToRemind");
+      const today = new Date().toISOString().slice(0, 10);
+      if (!(await claimNotice("remind", `${eventId}:${today}`, tenant_id))) throw new HttpError(429, "errors.remindedToday");
+      const lang = reqLang(req);
+      let reminded = 0;
+      await inBatches(pending, 8, async (p) => {
+        const ok = await sendInvite(req, db, {
+          tenantId: tenant_id,
+          participantId: Number(p.id),
+          email: String(p.email),
+          organizer: u.full_name,
+          replyTo: u.email,
+          people: event.participant_count,
+          reminder: true,
+          event,
+          typeName: serviceLabel(row, lang),
+        });
+        if (ok) reminded++;
+      });
+      await audit(req, "participant.remind", "event", eventId, { tenantId: tenant_id, actorId: u.id, meta: { pending: pending.length, reminded } });
+      res.json({ ok: true, reminded, pending: pending.length });
+    }),
+  );
+
   // ── Invite link (organizer): on/off, optional cap + expiry, regenerate. Free on every plan. ──
   app.get(
     "/api/app/events/:id/invite-link",
@@ -2186,7 +2633,7 @@ function registerTenantRoutes(app: express.Express) {
       } else if (body.send_invites) {
         const lang = reqLang(req);
         await inBatches(toInvite, 8, async (p) => {
-          if (await sendInvite(req, db, { tenantId: tenant_id, participantId: p.id, email: p.email, organizer: u.full_name, event, typeName: serviceLabel(row, lang) })) invited++;
+          if (await sendInvite(req, db, { tenantId: tenant_id, participantId: p.id, email: p.email, organizer: u.full_name, replyTo: u.email, event, typeName: serviceLabel(row, lang) })) invited++;
         });
       }
       await audit(req, "participant.add", "event", eventId, { tenantId: tenant_id, actorId: u.id, meta: { added } });
@@ -2248,7 +2695,7 @@ function registerTenantRoutes(app: express.Express) {
       const rows = await db.query("SELECT id, email, status FROM participants WHERE id = ? AND event_id = ? AND tenant_id = ?", [pid, eventId, tenant_id]);
       if (!rows[0]) throw new HttpError(404, "errors.notFound");
       if (rows[0].status === "removed") throw new HttpError(409, "errors.participantRemoved");
-      const ok = await sendInvite(req, db, { tenantId: tenant_id, participantId: pid, email: rows[0].email, organizer: authed(res).full_name, event, typeName: serviceLabel(row, reqLang(req)) });
+      const ok = await sendInvite(req, db, { tenantId: tenant_id, participantId: pid, email: rows[0].email, organizer: authed(res).full_name, replyTo: authed(res).email, event, typeName: serviceLabel(row, reqLang(req)) });
       if (!ok) throw new HttpError(502, "errors.emailFailed");
       res.json({ ok: true });
     }),
@@ -2330,7 +2777,7 @@ function registerTenantRoutes(app: express.Express) {
       const ids = people.map((p) => Number(p.id));
       const link = `${appUrl()}/app/my/${event.public_id}`;
       let notified = 0;
-      const tpl = tplAssignment(reqLang(req), { eventName: event.name, link, revealOn: event.reveal_mode === "together" ? event.exchange_date : null });
+      const tpl = tplAssignment(reqLang(req), { eventName: event.name, link, revealOn: event.reveal_mode === "together" ? event.exchange_date : null, wishlists: event.allow_wishlists });
       const { row: evRow } = await loadTenantEvent(tenant_id, eventId);
       const organizer = authed(res).full_name;
       await inBatches(people, 10, async (p) => {
@@ -2339,7 +2786,7 @@ function registerTenantRoutes(app: express.Express) {
         const ok =
           p.status === "joined"
             ? (await sendEmail({ to: p.email, ...tpl, template: "assignment", tenantId: tenant_id })).ok
-            : await sendInvite(req, db, { tenantId: tenant_id, participantId: Number(p.id), email: p.email, organizer, event, typeName: serviceLabel(evRow, reqLang(req)) });
+            : await sendInvite(req, db, { tenantId: tenant_id, participantId: Number(p.id), email: p.email, organizer, replyTo: authed(res).email, event, typeName: serviceLabel(evRow, reqLang(req)) });
         if (ok) notified++;
       });
       await audit(req, "event.draw", "event", eventId, { tenantId: tenant_id, actorId: authed(res).id, meta: { participants: ids.length } });
@@ -3161,6 +3608,41 @@ function registerAdminRoutes(app: express.Express) {
     }),
   );
 
+  // ── Email gallery: every template with sample data (EN/ES), plus "send a test to me". ──
+  app.get(
+    "/api/admin/email-previews",
+    requirePlatform("emails.read"),
+    route(async (_req, res) => {
+      res.json({ ok: true, items: Object.keys(EMAIL_PREVIEWS).map((key) => ({ key, subject: EMAIL_PREVIEWS[key]("en").subject })) });
+    }),
+  );
+
+  app.get(
+    "/api/admin/email-previews/:key",
+    requirePlatform("emails.read"),
+    route(async (req, res) => {
+      const build = EMAIL_PREVIEWS[String(req.params.key)];
+      if (!build || !Object.hasOwn(EMAIL_PREVIEWS, String(req.params.key))) throw new HttpError(404, "errors.notFound");
+      const lang: Lang = req.query.lang === "es" ? "es" : "en";
+      res.json({ ok: true, ...build(lang) });
+    }),
+  );
+
+  app.post(
+    "/api/admin/email-previews/:key/send",
+    writeLimiter,
+    requirePlatform("emails.read"),
+    route(async (req, res) => {
+      const key = String(req.params.key);
+      if (!Object.hasOwn(EMAIL_PREVIEWS, key)) throw new HttpError(404, "errors.notFound");
+      const lang: Lang = req.body?.lang === "es" ? "es" : "en";
+      const mail = EMAIL_PREVIEWS[key](lang);
+      // Only ever to the signed-in admin's own address.
+      const r = await sendEmail({ to: authed(res).email, ...mail, subject: `[Test] ${mail.subject}`, template: "test" });
+      res.json({ ok: r.ok, dry_run: r.dryRun, to: authed(res).email });
+    }),
+  );
+
   app.get(
     "/api/admin/emails",
     requirePlatform("emails.read"),
@@ -3168,7 +3650,7 @@ function registerAdminRoutes(app: express.Express) {
       const g = parseGridQuery(req.query as any, {
         sortMap: { id: "l.id", created_at: "l.created_at", to_email: "l.to_email", template: "l.template", status: "l.status" },
         defaultSort: "id",
-        filters: { status: { column: "l.status", values: ["sent", "failed", "dry_run"] }, template: { column: "l.template", values: ["otp", "invite", "assignment", "link_joined", "contact"] } },
+        filters: { status: { column: "l.status", values: ["sent", "failed", "dry_run"] }, template: { column: "l.template", values: ["otp", "invite", "reminder", "assignment", "reveal_day", "link_joined", "contact", "pro_welcome", "payment_failed", "pro_ended", "cancel_scheduled", "resumed", "test"] } },
         search: ["l.to_email", "t.name"],
       });
       res.json(
@@ -3225,7 +3707,11 @@ function registerCronRoutes(app: express.Express) {
       const otp = await db.exec("DELETE FROM otp_codes WHERE created_at < UTC_TIMESTAMP() - INTERVAL 2 DAY");
       const sess = await db.exec("DELETE FROM user_sessions WHERE expires_at < UTC_TIMESTAMP() - INTERVAL 7 DAY OR (is_active = 0 AND created_at < UTC_TIMESTAMP() - INTERVAL 30 DAY)");
       const drafts = await db.exec(`DELETE FROM wizard_drafts WHERE updated_at < UTC_TIMESTAMP() - INTERVAL ${DRAFT_TTL_DAYS} DAY`);
-      res.json({ ok: true, otp_deleted: otp.affectedRows, sessions_deleted: sess.affectedRows, drafts_deleted: drafts.affectedRows });
+      const reveal = await sendRevealDayEmails();
+      const graceEnded = await sendGraceEndedEmails();
+      // Daily-limit markers are only needed for a day; keep the rest (one row per one-off email) as an audit trail.
+      await db.exec("DELETE FROM email_notices WHERE kind = 'remind' AND created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY");
+      res.json({ ok: true, otp_deleted: otp.affectedRows, sessions_deleted: sess.affectedRows, drafts_deleted: drafts.affectedRows, reveal_day_emails: reveal, grace_ended_emails: graceEnded });
     }),
   );
 }
@@ -3300,4 +3786,6 @@ export const __test = {
   setBillingApi: (api: BillingApi | null) => void (billingOverride = api),
   platformCan,
   tenantCan,
+  /** Run the subscription → tenant sync directly (billing-email race tests). */
+  syncSubscriptionForTest: (sub: SubscriptionInfo) => syncTenantSubscription(null, sub),
 };

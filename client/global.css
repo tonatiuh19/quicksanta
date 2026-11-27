@@ -5105,3 +5105,158 @@ form .qs-modal-actions {
     width: min(230px, 66vw);
   }
 }
+
+/* Exchange → People: "N haven't joined yet · Remind" */
+.qs-remind-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px dashed var(--qs-gold);
+  border-radius: var(--radius);
+  background: #fffaf0;
+  font-size: 14px;
+}
+
+/* ── Command Center → Email gallery ── */
+.qs-gallery {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.qs-gallery-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.qs-gallery-list li button {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.qs-gallery-list li button:hover {
+  background: #fff;
+}
+.qs-gallery-list li button.is-on {
+  background: #fff;
+  border-color: var(--qs-line);
+  box-shadow: var(--qs-shadow);
+}
+.qs-gallery-list li span {
+  font-size: 12px;
+  color: var(--qs-slate);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qs-gallery-select {
+  display: none;
+}
+.qs-gallery-main {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--qs-line);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.qs-gallery-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.qs-gallery-toolbar .qs-btn-primary {
+  margin-left: auto;
+}
+.qs-seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--qs-cream);
+  border: 1px solid var(--qs-line);
+}
+.qs-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--qs-slate);
+  cursor: pointer;
+}
+.qs-seg button.is-on {
+  background: #fff;
+  color: var(--qs-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.qs-gallery-subject {
+  margin: 14px 0 10px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.qs-gallery-subject span {
+  color: var(--qs-slate);
+}
+.qs-gallery-toast {
+  margin: 10px 0 0;
+}
+.qs-gallery-frame {
+  margin: 0 auto;
+  border: 1px solid var(--qs-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f6f4f1;
+  transition: max-width 0.25s ease;
+}
+.qs-gallery-frame.is-desktop {
+  max-width: 680px;
+}
+.qs-gallery-frame.is-phone {
+  max-width: 375px;
+}
+.qs-gallery-frame iframe {
+  display: block;
+  width: 100%;
+  height: 820px;
+  border: 0;
+}
+.qs-gallery-text {
+  margin: 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--qs-cream);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (max-width: 900px) {
+  .qs-gallery {
+    grid-template-columns: 1fr;
+  }
+  .qs-gallery-list ul {
+    display: none;
+  }
+  .qs-gallery-select {
+    display: grid;
+  }
+  .qs-gallery-toolbar .qs-btn-primary {
+    margin-left: 0;
+    width: 100%;
+  }
+}

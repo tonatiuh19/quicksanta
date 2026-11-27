@@ -11,6 +11,17 @@ export const updateLead = createApiThunk("admin/updateLead", async (arg: { id: n
   await api.patch(`/admin/leads/${arg.id}`, arg.patch);
   return arg;
 });
+// ── Email gallery (every template with sample data) ──
+export type EmailPreview = { key: string; lang: "en" | "es"; subject: string; html: string; text: string };
+export const fetchEmailPreviews = createApiThunk("admin/emailPreviews", async () => (await api.get<{ items: Array<{ key: string; subject: string }> }>("/admin/email-previews")).data.items);
+export const fetchEmailPreview = createApiThunk("admin/emailPreview", async (arg: { key: string; lang: "en" | "es" }) => {
+  const d = (await api.get<{ subject: string; html: string; text: string }>(`/admin/email-previews/${encodeURIComponent(arg.key)}`, { params: { lang: arg.lang } })).data;
+  return { ...arg, subject: d.subject, html: d.html, text: d.text } as EmailPreview;
+});
+export const sendTestEmail = createApiThunk("admin/sendTestEmail", async (arg: { key: string; lang: "en" | "es" }) =>
+  (await api.post<{ ok: boolean; dry_run: boolean; to: string }>(`/admin/email-previews/${encodeURIComponent(arg.key)}/send`, { lang: arg.lang })).data,
+);
+
 export const fetchOverview = createApiThunk("admin/overview", async () => (await api.get<CommandCenterOverview>("/admin/overview")).data);
 export const fetchTenantDetail = createApiThunk("admin/tenantDetail", async (id: number) => (await api.get<TenantDetail>(`/admin/tenants/${id}`)).data);
 export const updateTenantAdmin = createApiThunk("admin/updateTenant", async (arg: { id: number; patch: Record<string, unknown> }) => {
@@ -40,10 +51,12 @@ interface AdminState {
   tenantDetail: TenantDetail | null;
   catalog: AdminEventType[];
   settings: SettingRow[];
+  emailPreviews: Array<{ key: string; subject: string }>;
+  emailPreview: EmailPreview | null;
   loading: Record<string, boolean>;
   error: string | null;
 }
-const initialState: AdminState = { overview: null, tenantDetail: null, catalog: [], settings: [], loading: {}, error: null };
+const initialState: AdminState = { overview: null, tenantDetail: null, catalog: [], settings: [], emailPreviews: [], emailPreview: null, loading: {}, error: null };
 
 const slice = createSlice({
   name: "admin",
@@ -72,6 +85,9 @@ const slice = createSlice({
           s.error = a.payload ?? "errors.server";
         });
     track(fetchOverview, "overview", (s, p) => void (s.overview = p));
+    track(fetchEmailPreviews, "emailPreviews", (s, p) => void (s.emailPreviews = p));
+    track(fetchEmailPreview, "emailPreview", (s, p) => void (s.emailPreview = p));
+    track(sendTestEmail, "sendTest", () => undefined);
     track(fetchTenantDetail, "tenant", (s, p) => void (s.tenantDetail = p));
     track(updateTenantAdmin, "save", (s, p) => {
       if (s.tenantDetail?.tenant.id === p.id) Object.assign(s.tenantDetail.tenant, p.patch);

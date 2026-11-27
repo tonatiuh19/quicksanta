@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Ban, CreditCard, Sparkles, CheckCircle2, Eye, MailPlus, Plus, RotateCcw, Send, Shuffle, Trash2, UserMinus, X } from "lucide-react";
+import { ArrowLeft, Ban, BellRing, CreditCard, Sparkles, CheckCircle2, Eye, MailPlus, Plus, RotateCcw, Send, Shuffle, Trash2, UserMinus, X } from "lucide-react";
 import { parseParticipantLines, type ParticipantRow } from "@shared/api";
 import { Card, ErrorNote, PageHeader, StatCard, StatusBadge, Spinner, formatBudget, formatDate } from "@/components/kit";
 import ServerGrid from "@/components/ServerGrid";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import type { DataGridColumn } from "@/components/ui/data-grid";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-  addExclusion, addParticipants, fetchEventDetail, fetchEventPeople, removeExclusion, resendInvite, resetDraw, runDraw, updateEvent, updateParticipant,
+  addExclusion, addParticipants, fetchEventDetail, fetchEventPeople, removeExclusion, remindPending, resendInvite, resetDraw, runDraw, updateEvent, updateParticipant,
 } from "@/store/slices/appSlice";
 
 type Tab = "people" | "rules" | "settings";
@@ -26,7 +26,7 @@ export default function EventDetail() {
   const { detail, loading, error } = useAppSelector((s) => s.app);
   const [tab, setTab] = useState<Tab>("people");
   const [reload, setReload] = useState(0);
-  const [confirm, setConfirm] = useState<null | "draw" | "reset" | "cancel">(null);
+  const [confirm, setConfirm] = useState<null | "draw" | "reset" | "cancel" | "remind">(null);
   const [toast, setToast] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [payOpen, setPayOpen] = useState(false);
@@ -49,6 +49,8 @@ export default function EventDetail() {
   useEffect(() => {
     void dispatch(fetchEventDetail(id));
   }, [dispatch, id]);
+  // Invited but not joined yet (who a reminder would reach).
+  const pendingCount = detail ? Math.max(0, detail.event.participant_count - detail.event.joined_count) : 0;
 
   const act = async (p: Promise<any>, okKey: string, opts?: Record<string, unknown>) => {
     setActionError(null);
@@ -225,6 +227,14 @@ export default function EventDetail() {
       {tab === "people" ? (
         <>
           {event.status !== "cancelled" ? <InviteLinkPanel eventId={id} eventName={event.name} /> : null}
+          {event.status === "open" && pendingCount > 0 ? (
+            <div className="qs-remind-row">
+              <span>{t("people.pendingInfo", { count: pendingCount })}</span>
+              <Button variant="outline" onClick={() => setConfirm("remind")}>
+                <BellRing /> {t("people.remind", { count: pendingCount })}
+              </Button>
+            </div>
+          ) : null}
           {!locked ? <AddPeople eventId={id} onDone={(r) => (setToast(String(t("people.addedToast", r))), refresh())} onNeedsPro={canUpgrade ? () => setPayOpen(true) : undefined} /> : null}
           <ServerGrid<ParticipantRow>
             grid="appParticipants"
@@ -255,18 +265,28 @@ export default function EventDetail() {
       {tab === "settings" ? <SettingsTab onSaved={() => setToast(t("common.saved"))} onError={setActionError} /> : null}
 
       <Modal open={confirm !== null} titleKey={confirm ? `event.confirm.${confirm}.title` : "common.confirm"} onClose={() => setConfirm(null)}>
-        <p className="qs-modal-body">{confirm ? t(`event.confirm.${confirm}.body`, { count: event.participant_count }) : null}</p>
+        <p className="qs-modal-body">{confirm ? t(`event.confirm.${confirm}.body`, { count: confirm === "remind" ? pendingCount : event.participant_count }) : null}</p>
         <div className="qs-modal-actions">
           <Button variant="ghost" onClick={() => setConfirm(null)}>
             {t("common.cancel")}
           </Button>
           <Button
-            className={confirm === "draw" ? "qs-btn-primary" : "qs-btn-danger"}
+            className={confirm === "draw" || confirm === "remind" ? "qs-btn-primary" : "qs-btn-danger"}
             disabled={loading.busy}
             onClick={async () => {
               const which = confirm;
               setConfirm(null);
               if (which === "draw") await act(dispatch(runDraw(id)), "event.drawnOk");
+              if (which === "remind") {
+                setActionError(null);
+                try {
+                  const r = await dispatch(remindPending(id)).unwrap();
+                  setToast(String(t("people.remindedToast", { count: r.reminded })));
+                  refresh();
+                } catch (e) {
+                  setActionError(String(e));
+                }
+              }
               if (which === "reset") await act(dispatch(resetDraw(id)), "event.resetOk");
               if (which === "cancel") await act(dispatch(updateEvent({ id, patch: { status: "cancelled" } })), "event.cancelledOk");
             }}
